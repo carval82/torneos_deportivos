@@ -1,0 +1,18 @@
+[phases.setup]
+nixPkgs = ["php82", "php82Packages.composer", "nodejs_20", "npm-9_x"]
+
+[phases.install]
+cmds = [
+  "composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist",
+  "npm ci || npm install",
+]
+
+[phases.build]
+cmds = [
+  "npm run build",
+  "mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache",
+  "chmod -R 775 storage bootstrap/cache",
+]
+
+[start]
+cmd = "bash scripts/railway-start.sh"
