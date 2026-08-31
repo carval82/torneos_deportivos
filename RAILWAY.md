@@ -41,13 +41,16 @@ Ya configurados:
 
 En Railway → servicio → **Settings** → generar dominio público.
 
-Opcional seed demo (una sola vez, desde shell Railway):
+**Producción arranca vacía:** solo `migrate` (tablas sin datos).  
+**No** corras `db:seed` en Railway. El seeder local es solo para desarrollo.
+
+Para registrar el primer organizador usá `/register` en la web.
+
+Si alguna vez seederaste por error y querés dejar la DB limpia:
 
 ```bash
-php artisan db:seed --force
+php artisan migrate:fresh --force
 ```
-
-Admin demo del seeder: `pcapacho24@gmail.com` / `anaval33` (cambialo en producción).
 
 ## 5. URLs útiles
 

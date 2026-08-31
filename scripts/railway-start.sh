@@ -3,7 +3,8 @@ set -euo pipefail
 
 php artisan config:clear
 php artisan storage:link || true
-php artisan migrate --force
+# Solo esquema vacío — nunca seed en producción
+php artisan migrate --force --no-interaction
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
