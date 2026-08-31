@@ -108,28 +108,57 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Torneos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const Text('Mis torneos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
-                  ...tournaments.map((t) {
-                    final map = t as Map<String, dynamic>;
-                    final slug = map['public_slug']?.toString();
-                    return Card(
-                      child: ListTile(
-                        title: Text(map['name']?.toString() ?? 'Torneo'),
-                        subtitle: Text(map['status']?.toString() ?? ''),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: slug == null || slug.isEmpty
-                            ? null
-                            : () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => TournamentScreen(slug: slug, title: map['name']?.toString()),
-                                  ),
-                                );
-                              },
+                  if (tournaments.isEmpty)
+                    const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text('Todavía no estás vinculado a un torneo.'),
                       ),
-                    );
-                  }),
+                    )
+                  else
+                    ...tournaments.map((t) {
+                      final map = t as Map<String, dynamic>;
+                      final slug = map['public_slug']?.toString();
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                map['name']?.toString() ?? 'Torneo',
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(map['status']?.toString() ?? '', style: const TextStyle(color: Colors.black54)),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.icon(
+                                  onPressed: slug == null || slug.isEmpty
+                                      ? null
+                                      : () {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) => TournamentScreen(
+                                                slug: slug,
+                                                title: map['name']?.toString(),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                  icon: const Icon(Icons.sports_soccer),
+                                  label: const Text('Entrar al torneo'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
                   const SizedBox(height: 16),
                   const Text('Próximas fechas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),

@@ -17,6 +17,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/player/home', [PlayerAuthController::class, 'home']);
 
     Route::get('/delegate/teams', [DelegateApiController::class, 'teams']);
+    Route::get('/delegate/tournaments', [DelegateApiController::class, 'tournaments']);
     Route::get('/delegate/teams/{team}/roster', [DelegateApiController::class, 'roster']);
     Route::post('/delegate/teams/{team}/players', [DelegateApiController::class, 'storePlayer']);
     Route::put('/delegate/teams/{team}/players/{player}', [DelegateApiController::class, 'updatePlayer']);

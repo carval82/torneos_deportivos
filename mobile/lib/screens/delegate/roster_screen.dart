@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/api_client.dart';
 import '../../state/app_state.dart';
+import '../tournament/tournament_screen.dart';
 import 'player_form_screen.dart';
 
 class RosterScreen extends StatefulWidget {
@@ -21,6 +22,9 @@ class _RosterScreenState extends State<RosterScreen> {
   Map<String, dynamic> _eligibility = {};
   Map<String, dynamic>? _rosterStatus;
   int? _tournamentId;
+  String? _tournamentSlug;
+  String? _tournamentName;
+  List<Map<String, dynamic>> _tournaments = [];
   bool _loading = true;
   String? _error;
   final _picker = ImagePicker();
@@ -67,12 +71,20 @@ class _RosterScreenState extends State<RosterScreen> {
           ? _asPlayerList(map['players'])
           : _asPlayerList(team['players']);
 
+      final tournaments = ((map['tournaments'] as List?) ?? [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+
       if (!mounted) return;
       setState(() {
         _players = players;
         _rosterStatus = map['roster_status'] is Map ? _asMap(map['roster_status']) : null;
         _eligibility = _asMap(map['eligibility']);
         _tournamentId = (tournament['id'] as num?)?.toInt() ?? _tournamentId;
+        _tournamentSlug = tournament['public_slug']?.toString() ?? _tournamentSlug;
+        _tournamentName = tournament['name']?.toString() ?? _tournamentName;
+        _tournaments = tournaments;
         _error = null;
       });
     } on ApiException catch (e) {
@@ -192,6 +204,53 @@ class _RosterScreenState extends State<RosterScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
                 children: [
+                  if (_tournamentSlug != null && _tournamentSlug!.isNotEmpty) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => TournamentScreen(
+                                slug: _tournamentSlug!,
+                                title: _tournamentName,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.emoji_events),
+                        label: Text('Ver torneo${_tournamentName != null ? ': $_tournamentName' : ''}'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ] else if (_tournaments.isNotEmpty) ...[
+                    ..._tournaments.map((tournament) {
+                      final slug = tournament['public_slug']?.toString();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: slug == null || slug.isEmpty
+                                ? null
+                                : () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => TournamentScreen(
+                                          slug: slug,
+                                          title: tournament['name']?.toString(),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                            icon: const Icon(Icons.emoji_events),
+                            label: Text('Ver torneo: ${tournament['name'] ?? ''}'),
+                          ),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 4),
+                  ],
                   if (_rosterStatus != null)
                     Card(
                       color: open ? const Color(0xFFF4F7F2) : const Color(0xFFFFF1F2),

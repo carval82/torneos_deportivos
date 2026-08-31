@@ -30,11 +30,73 @@ class DelegateApiController extends Controller
     public function teams(Request $request): JsonResponse
     {
         $user = $request->user();
-        $teams = $user->isAdmin() || $user->isOrganizer()
-            ? Team::withCount('players')->orderBy('name')->get()
-            : $user->teams()->withCount('players')->withPivot(['role', 'is_disciplinary_committee'])->orderBy('name')->get();
+        $with = [
+            'tournaments' => fn ($q) => $q
+                ->orderBy('tournaments.name')
+                ->select([
+                    'tournaments.id',
+                    'tournaments.name',
+                    'tournaments.public_slug',
+                    'tournaments.status',
+                ]),
+        ];
 
-        return response()->json(['teams' => $teams]);
+        $teams = $user->isAdmin() || $user->role === \App\Models\User::ROLE_ORGANIZER
+            ? Team::with($with)->withCount('players')->orderBy('name')->get()
+            : $user->teams()
+                ->with($with)
+                ->withCount('players')
+                ->withPivot(['role', 'is_disciplinary_committee'])
+                ->orderBy('name')
+                ->get();
+
+        return response()->json([
+            'teams' => $teams->map(fn (Team $team) => [
+                'id' => $team->id,
+                'name' => $team->name,
+                'short_name' => $team->short_name,
+                'city' => $team->city,
+                'players_count' => $team->players_count,
+                'tournaments' => $team->tournaments->map(fn (Tournament $tournament) => [
+                    'id' => $tournament->id,
+                    'name' => $tournament->name,
+                    'public_slug' => $tournament->public_slug,
+                    'status' => $tournament->status,
+                ])->values(),
+            ])->values(),
+        ]);
+    }
+
+    public function tournaments(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $teamIds = $user->isAdmin()
+            ? Team::query()->pluck('id')
+            : $user->teams()->pluck('teams.id');
+
+        if ($teamIds->isEmpty()) {
+            return response()->json(['tournaments' => []]);
+        }
+
+        $tournaments = Tournament::query()
+            ->with('sport')
+            ->withCount(['teams', 'games'])
+            ->whereHas('teams', fn ($q) => $q->whereIn('teams.id', $teamIds))
+            ->orderByDesc('tournaments.id')
+            ->get()
+            ->map(fn (Tournament $tournament) => [
+                'id' => $tournament->id,
+                'name' => $tournament->name,
+                'public_slug' => $tournament->public_slug,
+                'status' => $tournament->status,
+                'status_label' => $tournament->statusLabel(),
+                'sport' => $tournament->sport?->name,
+                'teams_count' => $tournament->teams_count,
+                'games_count' => $tournament->games_count,
+            ])
+            ->values();
+
+        return response()->json(['tournaments' => $tournaments]);
     }
 
     public function roster(Request $request, Team $team): JsonResponse

@@ -17,16 +17,18 @@ class TournamentScreen extends StatefulWidget {
 class _TournamentScreenState extends State<TournamentScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabs;
   Map<String, dynamic>? _summary;
+  Map<String, dynamic>? _rules;
   List<dynamic> _games = [];
   List<dynamic> _standings = [];
   List<dynamic> _scorers = [];
+  List<dynamic> _upcoming = [];
   bool _loading = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this);
+    _tabs = TabController(length: 5, vsync: this);
     _load();
   }
 
@@ -47,11 +49,20 @@ class _TournamentScreenState extends State<TournamentScreen> with SingleTickerPr
       final fixture = await api.get('/t/${widget.slug}/fixture') as Map<String, dynamic>;
       final standings = await api.get('/t/${widget.slug}/standings') as Map<String, dynamic>;
       final scorers = await api.get('/t/${widget.slug}/scorers') as Map<String, dynamic>;
+      Map<String, dynamic>? rules;
+      try {
+        rules = await api.get('/t/${widget.slug}/rules') as Map<String, dynamic>;
+      } on ApiException {
+        rules = null;
+      }
+      if (!mounted) return;
       setState(() {
         _summary = summary;
+        _rules = rules;
         _games = (fixture['games'] as List?) ?? [];
         _standings = (standings['standings'] as List?) ?? (summary['standings'] as List?) ?? [];
         _scorers = (scorers['scorers'] as List?) ?? (summary['scorers'] as List?) ?? [];
+        _upcoming = (summary['upcoming'] as List?) ?? [];
       });
     } on ApiException catch (e) {
       setState(() => _error = e.message);
@@ -64,34 +75,180 @@ class _TournamentScreenState extends State<TournamentScreen> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.title ??
-        (_summary?['tournament'] is Map ? (_summary!['tournament'] as Map)['name']?.toString() : null) ??
-        'Torneo';
+    final tournament = _summary?['tournament'] is Map
+        ? Map<String, dynamic>.from(_summary!['tournament'] as Map)
+        : <String, dynamic>{};
+    final title = widget.title ?? tournament['name']?.toString() ?? 'Torneo';
 
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
         bottom: TabBar(
           controller: _tabs,
+          isScrollable: true,
           tabs: const [
-            Tab(text: 'Tabla'),
+            Tab(text: 'Inicio'),
             Tab(text: 'Fixture'),
+            Tab(text: 'Tabla'),
             Tab(text: 'Goles'),
+            Tab(text: 'Reglamento'),
           ],
         ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
+                        const SizedBox(height: 12),
+                        FilledButton(onPressed: _load, child: const Text('Reintentar')),
+                      ],
+                    ),
+                  ),
+                )
               : TabBarView(
                   controller: _tabs,
                   children: [
-                    _StandingsTab(rows: _standings),
+                    _HomeTab(
+                      tournament: tournament,
+                      upcoming: _upcoming,
+                      onOpenFixture: () => _tabs.animateTo(1),
+                      onOpenStandings: () => _tabs.animateTo(2),
+                    ),
                     _FixtureTab(games: _games),
+                    _StandingsTab(rows: _standings),
                     _ScorersTab(rows: _scorers),
+                    _RulesTab(rules: _rules, tournament: tournament),
                   ],
                 ),
+    );
+  }
+}
+
+class _HomeTab extends StatelessWidget {
+  const _HomeTab({
+    required this.tournament,
+    required this.upcoming,
+    required this.onOpenFixture,
+    required this.onOpenStandings,
+  });
+
+  final Map<String, dynamic> tournament;
+  final List<dynamic> upcoming;
+  final VoidCallback onOpenFixture;
+  final VoidCallback onOpenStandings;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Card(
+          color: const Color(0xFFF4F7F2),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(tournament['name']?.toString() ?? 'Torneo',
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                Text([
+                  tournament['status']?.toString() ?? '',
+                  if (tournament['complex_name'] != null) tournament['complex_name'].toString(),
+                  if (tournament['sport'] is Map) (tournament['sport'] as Map)['name']?.toString() ?? '',
+                ].where((e) => e.trim().isNotEmpty).join(' · ')),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: onOpenFixture,
+                icon: const Icon(Icons.calendar_month),
+                label: const Text('Fixture'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: onOpenStandings,
+                icon: const Icon(Icons.table_chart),
+                label: const Text('Tabla'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        const Text('Próximos partidos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        if (upcoming.isEmpty)
+          const Text('Sin partidos pendientes.')
+        else
+          ...upcoming.take(8).map((item) {
+            final g = Map<String, dynamic>.from(item as Map);
+            final home = g['home_team'] ?? g['homeTeam'];
+            final away = g['away_team'] ?? g['awayTeam'];
+            final homeName = home is Map ? home['name'] : 'Local';
+            final awayName = away is Map ? away['name'] : 'Visita';
+            final when = g['scheduled_at']?.toString() ?? '';
+            final time = when.length >= 16 ? when.replaceFirst('T', ' ').substring(11, 16) : when;
+            final field = g['field_name']?.toString() ?? g['venue']?.toString() ?? 'Sin cancha';
+            return Card(
+              child: ListTile(
+                title: Text('$homeName vs $awayName'),
+                subtitle: Text('Fecha ${g['matchday'] ?? '—'} · $time · $field'),
+              ),
+            );
+          }),
+      ],
+    );
+  }
+}
+
+class _RulesTab extends StatelessWidget {
+  const _RulesTab({required this.rules, required this.tournament});
+  final Map<String, dynamic>? rules;
+  final Map<String, dynamic> tournament;
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = rules?['rules_summary']?.toString() ?? tournament['rules_summary']?.toString();
+    final body = rules?['rules']?.toString() ?? tournament['rules']?.toString();
+    final narrative = rules?['narrative']?.toString();
+
+    if ((summary == null || summary.isEmpty) && (body == null || body.isEmpty)) {
+      return const Center(child: Text('El reglamento todavía no está publicado.'));
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        if (summary != null && summary.isNotEmpty)
+          Card(
+            color: const Color(0xFFF4F7F2),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(summary, style: const TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ),
+        if (narrative != null && narrative.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(narrative),
+        ],
+        if (body != null && body.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(body),
+        ],
+      ],
     );
   }
 }
@@ -130,7 +287,6 @@ class _FixtureTab extends StatelessWidget {
   String _timeLabel(Map<String, dynamic> g) {
     final raw = g['scheduled_at']?.toString() ?? '';
     if (raw.length >= 16) {
-      // 2026-08-31T09:00:00.000000Z or 2026-08-31 09:00:00
       final cleaned = raw.replaceFirst('T', ' ');
       return cleaned.substring(11, 16);
     }

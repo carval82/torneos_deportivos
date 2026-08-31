@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/api_client.dart';
 import '../../state/app_state.dart';
+import '../tournament/tournament_screen.dart';
 import '../welcome_screen.dart';
 import 'roster_screen.dart';
 
@@ -14,7 +15,7 @@ class TeamsScreen extends StatefulWidget {
 }
 
 class _TeamsScreenState extends State<TeamsScreen> {
-  List<dynamic> _teams = [];
+  List<Map<String, dynamic>> _teams = [];
   bool _loading = true;
   String? _error;
 
@@ -31,7 +32,10 @@ class _TeamsScreenState extends State<TeamsScreen> {
     });
     try {
       final data = await context.read<AppState>().api.get('/delegate/teams') as Map<String, dynamic>;
-      setState(() => _teams = (data['teams'] as List?) ?? []);
+      final raw = (data['teams'] as List?) ?? [];
+      setState(() {
+        _teams = raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      });
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } catch (_) {
@@ -39,6 +43,19 @@ class _TeamsScreenState extends State<TeamsScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _openTournament(Map<String, dynamic> tournament) {
+    final slug = tournament['public_slug']?.toString();
+    if (slug == null || slug.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TournamentScreen(
+          slug: slug,
+          title: tournament['name']?.toString(),
+        ),
+      ),
+    );
   }
 
   @override
@@ -66,11 +83,12 @@ class _TeamsScreenState extends State<TeamsScreen> {
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 children: [
                   Text('Hola, ${state.name ?? ''}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
-                  const Text('Gestioná la plantilla de tus equipos. Sin costo para delegados.'),
+                  const Text('Gestioná la plantilla y entrá al torneo para ver fixture, tabla y goleadores.'),
                   const SizedBox(height: 16),
                   if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
                   if (_teams.isEmpty && _error == null)
@@ -80,24 +98,77 @@ class _TeamsScreenState extends State<TeamsScreen> {
                         child: Text('No tenés equipos asignados. Pedí el link de invitación al organizador.'),
                       ),
                     ),
-                  ..._teams.map((item) {
-                    final t = item as Map<String, dynamic>;
+                  ..._teams.map((team) {
+                    final tournaments = ((team['tournaments'] as List?) ?? [])
+                        .whereType<Map>()
+                        .map((e) => Map<String, dynamic>.from(e))
+                        .toList();
                     return Card(
-                      child: ListTile(
-                        title: Text(t['name']?.toString() ?? 'Equipo'),
-                        subtitle: Text('${t['players_count'] ?? t['players_count'] ?? 0} jugadores'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () async {
-                          await Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => RosterScreen(
-                                teamId: (t['id'] as num).toInt(),
-                                teamName: t['name']?.toString() ?? 'Equipo',
-                              ),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(team['name']?.toString() ?? 'Equipo',
+                                  style: const TextStyle(fontWeight: FontWeight.w700)),
+                              subtitle: Text('${team['players_count'] ?? 0} jugadores'),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () async {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => RosterScreen(
+                                      teamId: (team['id'] as num).toInt(),
+                                      teamName: team['name']?.toString() ?? 'Equipo',
+                                    ),
+                                  ),
+                                );
+                                if (mounted) _load();
+                              },
                             ),
-                          );
-                          if (mounted) _load();
-                        },
+                            if (tournaments.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 4),
+                                child: Text('Sin torneo vinculado todavía.',
+                                    style: TextStyle(color: Colors.black54, fontSize: 13)),
+                              )
+                            else
+                              ...tournaments.map((tournament) {
+                                final slug = tournament['public_slug']?.toString();
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    child: FilledButton.icon(
+                                      onPressed: slug == null || slug.isEmpty
+                                          ? null
+                                          : () => _openTournament(tournament),
+                                      icon: const Icon(Icons.emoji_events),
+                                      label: Text('Ver torneo: ${tournament['name'] ?? ''}'),
+                                    ),
+                                  ),
+                                );
+                              }),
+                            const SizedBox(height: 4),
+                            TextButton.icon(
+                              onPressed: () async {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => RosterScreen(
+                                      teamId: (team['id'] as num).toInt(),
+                                      teamName: team['name']?.toString() ?? 'Equipo',
+                                    ),
+                                  ),
+                                );
+                                if (mounted) _load();
+                              },
+                              icon: const Icon(Icons.badge_outlined),
+                              label: const Text('Gestionar plantilla'),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   }),

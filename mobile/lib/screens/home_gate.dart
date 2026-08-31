@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
-import 'delegate/teams_screen.dart';
+import 'delegate/delegate_shell.dart';
 import 'organizer/tournaments_screen.dart';
 import 'player/player_home_screen.dart';
 import 'welcome_screen.dart';
@@ -28,10 +28,10 @@ class HomeGate extends StatelessWidget {
       case 'player':
         return const PlayerHomeScreen();
       case 'delegate':
-        return const TeamsScreen();
+        return const DelegateShell();
       case 'admin':
       case 'organizer':
-        return const TournamentsScreen();
+        return const TournamentsScreen(mode: TournamentListMode.organizer);
       default:
         return const WelcomeScreen();
     }

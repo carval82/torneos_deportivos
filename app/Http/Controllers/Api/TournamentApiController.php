@@ -24,15 +24,44 @@ class TournamentApiController extends Controller
     public function index(): JsonResponse
     {
         $user = request()->user();
-        $query = Tournament::with(['sport', 'ageCategory'])
-            ->withCount(['teams', 'games'])
-            ->latest();
+        abort_unless($user, 401);
 
-        if ($user && ! $user->isAdmin()) {
+        $query = Tournament::with(['sport'])
+            ->withCount(['teams', 'games'])
+            ->orderByDesc('tournaments.id');
+
+        if ($user->isAdmin()) {
+            // Master: todos los torneos.
+        } elseif ($user->role === \App\Models\User::ROLE_ORGANIZER) {
+            // Organizador: solo los que creó.
             $query->where('user_id', $user->id);
+        } else {
+            // Delegado / jugador: solo torneos de sus equipos.
+            $teamIds = $user->teams()->pluck('teams.id');
+            if ($user->player?->team_id) {
+                $teamIds->push($user->player->team_id);
+            }
+            $teamIds = $teamIds->unique()->filter()->values();
+            if ($teamIds->isEmpty()) {
+                return response()->json([]);
+            }
+            $query->whereHas('teams', fn ($q) => $q->whereIn('teams.id', $teamIds));
         }
 
-        return response()->json($query->get());
+        return response()->json(
+            $query->get()->map(fn (Tournament $tournament) => [
+                'id' => $tournament->id,
+                'name' => $tournament->name,
+                'public_slug' => $tournament->public_slug,
+                'status' => $tournament->status,
+                'status_label' => $tournament->statusLabel(),
+                'season' => $tournament->season,
+                'sport' => $tournament->sport?->name,
+                'teams_count' => $tournament->teams_count,
+                'games_count' => $tournament->games_count,
+                'complex_name' => $tournament->complex_name,
+            ])->values()
+        );
     }
 
     public function show(Tournament $tournament): JsonResponse
