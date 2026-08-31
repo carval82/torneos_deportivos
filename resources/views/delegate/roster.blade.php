@@ -21,6 +21,12 @@
         @endif
     </div>
 
+    @if ($rosterStatus ?? null)
+        <div class="mb-6 rounded-2xl border px-4 py-3 text-sm {{ ($rosterStatus['open'] ?? false) ? 'border-arena-lime/40 bg-arena-mist text-arena-navy' : 'border-rose-200 bg-rose-50 text-rose-800' }}">
+            {{ $rosterStatus['message'] }}
+        </div>
+    @endif
+
     <div class="grid lg:grid-cols-3 gap-6">
         <section class="card p-6 lg:col-span-2">
             <h2 class="font-semibold mb-4">Jugadores ({{ $team->players->count() }})</h2>
@@ -50,7 +56,7 @@
                         </div>
                         <details class="mt-3">
                             <summary class="text-sm font-semibold text-arena-limeDark cursor-pointer">Editar</summary>
-                            <form method="POST" action="{{ route('delegate.players.update', [$team, $player]) }}" class="mt-3 grid sm:grid-cols-2 gap-3">
+                            <form method="POST" action="{{ route('delegate.players.update', [$team, $player]) }}" enctype="multipart/form-data" class="mt-3 grid sm:grid-cols-2 gap-3">
                                 @csrf
                                 @method('PUT')
                                 @if ($tournament)
@@ -100,8 +106,27 @@
                                     <label class="text-xs text-slate-500">Posición</label>
                                     <input name="position" value="{{ $player->position }}" class="field">
                                 </div>
-                                <div class="sm:col-span-2">
+                                <div>
+                                    <label class="text-xs text-slate-500">Foto del jugador</label>
+                                    <input type="file" name="photo" accept="image/*" capture="environment" class="field">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-slate-500">Foto del documento</label>
+                                    <input type="file" name="document_photo" accept="image/*" capture="environment" class="field">
+                                </div>
+                                <div class="sm:col-span-2 flex flex-wrap gap-2">
                                     <button class="btn-primary">Guardar cambios</button>
+                                    @if ($tournament && ! ($eligibility[$player->id]['eligible'] ?? true))
+                                        <button
+                                            formaction="{{ route('exceptions.store', $tournament) }}"
+                                            formmethod="POST"
+                                            name="reason"
+                                            value="Jugador menor a la categoría. Solicito autorización del master."
+                                            class="btn-ghost text-amber-800"
+                                        >Pedir excepción de edad</button>
+                                        <input type="hidden" name="player_id" value="{{ $player->id }}">
+                                        <input type="hidden" name="team_id" value="{{ $team->id }}">
+                                    @endif
                                 </div>
                             </form>
                         </details>
@@ -114,7 +139,7 @@
 
         <section class="card p-6 h-fit">
             <h2 class="font-semibold mb-4">Agregar jugador</h2>
-            <form method="POST" action="{{ route('delegate.players.store', $team) }}" class="space-y-3">
+            <form method="POST" action="{{ route('delegate.players.store', $team) }}" enctype="multipart/form-data" class="space-y-3">
                 @csrf
                 @if ($tournament)
                     <input type="hidden" name="tournament_id" value="{{ $tournament->id }}">
@@ -167,8 +192,17 @@
                         <input name="position" value="{{ old('position') }}" class="field">
                     </div>
                 </div>
+                <div>
+                    <label class="text-sm text-slate-600">Foto del jugador</label>
+                    <input type="file" name="photo" accept="image/*" capture="user" class="field">
+                </div>
+                <div>
+                    <label class="text-sm text-slate-600">Foto del documento</label>
+                    <input type="file" name="document_photo" accept="image/*" capture="environment" class="field">
+                </div>
                 @error('document_number') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
-                <button class="btn-accent w-full">Agregar a la plantilla</button>
+                @error('roster') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
+                <button class="btn-accent w-full" @disabled(($rosterStatus['open'] ?? true) === false)>Agregar a la plantilla</button>
             </form>
         </section>
     </div>

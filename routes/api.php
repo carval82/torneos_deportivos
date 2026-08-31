@@ -19,6 +19,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/delegate/teams', [DelegateApiController::class, 'teams']);
     Route::get('/delegate/teams/{team}/roster', [DelegateApiController::class, 'roster']);
     Route::post('/delegate/teams/{team}/players', [DelegateApiController::class, 'storePlayer']);
+    Route::put('/delegate/teams/{team}/players/{player}', [DelegateApiController::class, 'updatePlayer']);
+    Route::post('/delegate/teams/{team}/players/{player}/photos', [DelegateApiController::class, 'uploadPhotos']);
+    Route::post('/delegate/tournaments/{tournament}/exceptions', [DelegateApiController::class, 'requestException']);
+    Route::get('/delegate/tournaments/{tournament}/suspensions', [DelegateApiController::class, 'suspensions']);
+    Route::post('/delegate/tournaments/{tournament}/sentences', [DelegateApiController::class, 'storeSentence']);
 
     // Vista de torneo por slug (requiere token)
     Route::prefix('t')->group(function () {

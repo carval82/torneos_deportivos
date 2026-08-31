@@ -25,7 +25,7 @@ class Team extends Model
     public function delegates(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'team_user')
-            ->withPivot('role')
+            ->withPivot(['role', 'is_disciplinary_committee'])
             ->withTimestamps();
     }
 

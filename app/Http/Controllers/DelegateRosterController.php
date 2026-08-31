@@ -8,6 +8,8 @@ use App\Models\Team;
 use App\Models\Tournament;
 use App\Services\EligibilityChecker;
 use App\Services\MatchSheetService;
+use App\Services\PlayerMediaService;
+use App\Services\RosterLockService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -17,6 +19,8 @@ class DelegateRosterController extends Controller
     public function __construct(
         private readonly MatchSheetService $sheets,
         private readonly EligibilityChecker $eligibility,
+        private readonly RosterLockService $rosterLock,
+        private readonly PlayerMediaService $media,
     ) {}
 
     public function index(Request $request): View
@@ -48,11 +52,14 @@ class DelegateRosterController extends Controller
             }
         }
 
+        $rosterStatus = $tournament ? $this->rosterLock->status($tournament) : null;
+
         return view('delegate.roster', [
             'team' => $team,
             'tournament' => $tournament,
             'tournaments' => $team->tournaments()->orderBy('name')->get(),
             'eligibility' => $eligibility,
+            'rosterStatus' => $rosterStatus,
         ]);
     }
 
@@ -72,7 +79,13 @@ class DelegateRosterController extends Controller
             'jersey_number' => ['nullable', 'integer', 'min:0', 'max:99'],
             'phone' => ['nullable', 'string', 'max:40'],
             'email' => ['nullable', 'email', 'max:150'],
+            'photo' => ['nullable', 'image', 'max:8192'],
+            'document_photo' => ['nullable', 'image', 'max:8192'],
         ]);
+
+        if (! empty($data['tournament_id'])) {
+            $this->rosterLock->assertOpen(Tournament::findOrFail($data['tournament_id']));
+        }
 
         $exists = Player::query()
             ->where('document_type', $data['document_type'])
@@ -89,10 +102,17 @@ class DelegateRosterController extends Controller
         unset($data['tournament_id']);
 
         $player = Player::create([
-            ...$data,
+            ...collect($data)->except(['photo', 'document_photo', 'tournament_id'])->all(),
             'team_id' => $team->id,
             'nationality' => 'Argentina',
         ]);
+
+        if ($request->hasFile('photo')) {
+            $this->media->storePhoto($player, $request->file('photo'));
+        }
+        if ($request->hasFile('document_photo')) {
+            $this->media->storeDocumentPhoto($player, $request->file('document_photo'));
+        }
 
         if ($tournamentId && $team->tournaments()->where('tournaments.id', $tournamentId)->exists()) {
             Roster::updateOrCreate(
@@ -134,7 +154,13 @@ class DelegateRosterController extends Controller
             'email' => ['nullable', 'email', 'max:150'],
             'is_active' => ['sometimes', 'boolean'],
             'tournament_id' => ['nullable', 'exists:tournaments,id'],
+            'photo' => ['nullable', 'image', 'max:8192'],
+            'document_photo' => ['nullable', 'image', 'max:8192'],
         ]);
+
+        if ($request->filled('tournament_id')) {
+            $this->rosterLock->assertOpen(Tournament::findOrFail($request->integer('tournament_id')));
+        }
 
         $duplicate = Player::query()
             ->where('document_type', $data['document_type'])
@@ -148,7 +174,14 @@ class DelegateRosterController extends Controller
             ])->withInput();
         }
 
-        $player->update(collect($data)->except(['is_active', 'tournament_id'])->all());
+        $player->update(collect($data)->except(['is_active', 'tournament_id', 'photo', 'document_photo'])->all());
+
+        if ($request->hasFile('photo')) {
+            $this->media->storePhoto($player, $request->file('photo'));
+        }
+        if ($request->hasFile('document_photo')) {
+            $this->media->storeDocumentPhoto($player, $request->file('document_photo'));
+        }
 
         if ($request->filled('tournament_id')) {
             Roster::updateOrCreate(

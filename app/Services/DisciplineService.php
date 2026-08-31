@@ -4,7 +4,10 @@ namespace App\Services;
 
 use App\Models\Game;
 use App\Models\GameEvent;
+use App\Models\Player;
 use App\Models\Suspension;
+use App\Models\Tournament;
+use App\Models\User;
 use Illuminate\Support\Collection;
 
 class DisciplineService
@@ -83,6 +86,32 @@ class DisciplineService
             'matches_total' => $matches,
             'matches_remaining' => $matches,
             'is_active' => true,
+            'source' => 'match_card',
+        ]);
+    }
+
+    public function issueCommitteeSentence(
+        Tournament $tournament,
+        Player $player,
+        User $issuer,
+        int $matches,
+        string $reason,
+        ?string $notes = null,
+    ): Suspension {
+        $matches = max(1, $matches);
+
+        return Suspension::create([
+            'tournament_id' => $tournament->id,
+            'player_id' => $player->id,
+            'team_id' => $player->team_id,
+            'reason' => $reason,
+            'card_type' => 'committee',
+            'matches_total' => $matches,
+            'matches_remaining' => $matches,
+            'is_active' => true,
+            'issued_by' => $issuer->id,
+            'source' => 'committee',
+            'notes' => $notes,
         ]);
     }
 

@@ -18,6 +18,9 @@ class Suspension extends Model
         'matches_total',
         'matches_remaining',
         'is_active',
+        'issued_by',
+        'source',
+        'notes',
     ];
 
     protected function casts(): array
@@ -47,12 +50,19 @@ class Suspension extends Model
         return $this->belongsTo(Game::class, 'source_game_id');
     }
 
+    public function issuer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'issued_by');
+    }
+
     public function label(): string
     {
         return match ($this->card_type) {
             'red' => 'Roja directa',
             'double_yellow' => 'Doble amarilla',
             'yellow' => 'Amarilla',
+            'committee' => 'Comité disciplinario',
+            'manual' => 'Sanción manual',
             default => $this->card_type,
         };
     }

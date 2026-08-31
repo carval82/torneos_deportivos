@@ -134,7 +134,7 @@ class TournamentController extends Controller
     {
         $this->authorize('view', $tournament);
 
-        $tournament->load(['sport', 'teams.players', 'games.homeTeam', 'games.awayTeam', 'invites']);
+        $tournament->load(['sport', 'teams.players', 'teams.delegates', 'games.homeTeam', 'games.awayTeam', 'invites']);
 
         $tab = $request->string('tab', 'resumen')->toString();
         $table = $this->standings->table($tournament);
@@ -189,6 +189,13 @@ class TournamentController extends Controller
                 ->latest()
                 ->get()
                 ->keyBy('team_id'),
+            'pendingExceptions' => \App\Models\EligibilityException::query()
+                ->with(['player', 'team', 'requester'])
+                ->where('tournament_id', $tournament->id)
+                ->where('status', 'pending')
+                ->latest()
+                ->get(),
+            'canDiscipline' => Auth::user()?->canIssueDisciplinarySentence($tournament) ?? false,
         ]);
     }
 
@@ -363,6 +370,9 @@ class TournamentController extends Controller
             'walkover_goals_against' => ['nullable', 'integer', 'min:0', 'max:20'],
             'max_no_shows_before_dq' => ['nullable', 'integer', 'min:1', 'max:20'],
             'on_disqualification' => ['nullable', 'in:wo_remaining,bye_rest'],
+            'roster_lock_mode' => ['nullable', 'in:open,until_date,after_matchday'],
+            'roster_lock_until' => ['nullable', 'date'],
+            'roster_lock_matchday' => ['nullable', 'integer', 'min:1', 'max:40'],
             'rules' => ['nullable', 'string'],
             'rules_summary' => ['nullable', 'string', 'max:500'],
             'rules_published' => ['sometimes', 'boolean'],
@@ -405,6 +415,9 @@ class TournamentController extends Controller
             'max_no_shows_before_dq' => $data['max_no_shows_before_dq'] ?? null,
             'on_disqualification' => $data['on_disqualification'] ?? 'wo_remaining',
             'count_wo_in_standings' => true,
+            'roster_lock_mode' => $data['roster_lock_mode'] ?? 'open',
+            'roster_lock_until' => $data['roster_lock_until'] ?? null,
+            'roster_lock_matchday' => $data['roster_lock_matchday'] ?? 1,
         ]);
 
         $times = collect($data['match_start_times'] ?? [])
@@ -431,6 +444,9 @@ class TournamentController extends Controller
             $data['walkover_goals_against'],
             $data['max_no_shows_before_dq'],
             $data['on_disqualification'],
+            $data['roster_lock_mode'],
+            $data['roster_lock_until'],
+            $data['roster_lock_matchday'],
         );
 
         return $data;

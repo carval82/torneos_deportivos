@@ -52,6 +52,36 @@ class ApiClient {
     return _decode(res);
   }
 
+  Future<dynamic> put(String path, Map<String, dynamic> body, {bool auth = true}) async {
+    final res = await _client.put(
+      _uri(path),
+      headers: _headers(auth: auth),
+      body: jsonEncode(body),
+    );
+    return _decode(res);
+  }
+
+  /// Multipart upload (fotos). Fields as strings; files as local paths.
+  Future<dynamic> postMultipart(
+    String path, {
+    Map<String, String> fields = const {},
+    Map<String, String> files = const {},
+    bool auth = true,
+  }) async {
+    final req = http.MultipartRequest('POST', _uri(path));
+    req.headers['Accept'] = 'application/json';
+    if (auth && token != null && token!.isNotEmpty) {
+      req.headers['Authorization'] = 'Bearer $token';
+    }
+    req.fields.addAll(fields);
+    for (final entry in files.entries) {
+      req.files.add(await http.MultipartFile.fromPath(entry.key, entry.value));
+    }
+    final streamed = await req.send();
+    final res = await http.Response.fromStream(streamed);
+    return _decode(res);
+  }
+
   dynamic _decode(http.Response res) {
     final body = res.body.isEmpty ? null : jsonDecode(res.body);
     if (res.statusCode >= 200 && res.statusCode < 300) {

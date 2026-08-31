@@ -7,13 +7,7 @@ use App\Models\Tournament;
 class CompetitionRulesService
 {
     /**
-     * @return array{
-     *     walkover_goals_for: int,
-     *     walkover_goals_against: int,
-     *     max_no_shows_before_dq: int,
-     *     on_disqualification: string,
-     *     count_wo_in_standings: bool
-     * }
+     * @return array<string, mixed>
      */
     public function defaults(): array
     {
@@ -23,21 +17,24 @@ class CompetitionRulesService
             'max_no_shows_before_dq' => 2,
             'on_disqualification' => 'wo_remaining',
             'count_wo_in_standings' => true,
+            // open = libre hasta que el organizador configure tope
+            'roster_lock_mode' => 'open',
+            'roster_lock_until' => null,
+            'roster_lock_matchday' => 1,
+            'allow_roster_changes_round1' => true,
         ];
     }
 
     /**
-     * @return array{
-     *     walkover_goals_for: int,
-     *     walkover_goals_against: int,
-     *     max_no_shows_before_dq: int,
-     *     on_disqualification: string,
-     *     count_wo_in_standings: bool
-     * }
+     * @return array<string, mixed>
      */
     public function for(Tournament $tournament): array
     {
         $rules = array_merge($this->defaults(), $tournament->competition_rules ?? []);
+        $mode = $rules['roster_lock_mode'] ?? 'open';
+        if (! in_array($mode, ['open', 'until_date', 'after_matchday'], true)) {
+            $mode = 'open';
+        }
 
         return [
             'walkover_goals_for' => max(0, (int) ($rules['walkover_goals_for'] ?? 3)),
@@ -47,6 +44,10 @@ class CompetitionRulesService
                 ? 'bye_rest'
                 : 'wo_remaining',
             'count_wo_in_standings' => (bool) ($rules['count_wo_in_standings'] ?? true),
+            'roster_lock_mode' => $mode,
+            'roster_lock_until' => $rules['roster_lock_until'] ?? null,
+            'roster_lock_matchday' => max(1, (int) ($rules['roster_lock_matchday'] ?? 1)),
+            'allow_roster_changes_round1' => (bool) ($rules['allow_roster_changes_round1'] ?? true),
         ];
     }
 
@@ -57,6 +58,10 @@ class CompetitionRulesService
     public function normalize(array $input): array
     {
         $defaults = $this->defaults();
+        $mode = $input['roster_lock_mode'] ?? $defaults['roster_lock_mode'];
+        if (! in_array($mode, ['open', 'until_date', 'after_matchday'], true)) {
+            $mode = 'open';
+        }
 
         return [
             'walkover_goals_for' => max(0, min(20, (int) ($input['walkover_goals_for'] ?? $defaults['walkover_goals_for']))),
@@ -66,6 +71,12 @@ class CompetitionRulesService
                 ? 'bye_rest'
                 : 'wo_remaining',
             'count_wo_in_standings' => (bool) ($input['count_wo_in_standings'] ?? true),
+            'roster_lock_mode' => $mode,
+            'roster_lock_until' => ! empty($input['roster_lock_until'])
+                ? (string) $input['roster_lock_until']
+                : null,
+            'roster_lock_matchday' => max(1, min(40, (int) ($input['roster_lock_matchday'] ?? 1))),
+            'allow_roster_changes_round1' => (bool) ($input['allow_roster_changes_round1'] ?? true),
         ];
     }
 
@@ -78,7 +89,17 @@ class CompetitionRulesService
             ? 'los partidos pendientes se dan por W.O. a favor del rival'
             : 'los rivales de partidos pendientes descansan (bye)';
 
+        $roster = match ($rules['roster_lock_mode']) {
+            'until_date' => $rules['roster_lock_until']
+                ? 'Cambios de plantilla habilitados hasta el '.$rules['roster_lock_until'].'.'
+                : 'Cambios de plantilla con fecha límite pendiente de definir.',
+            'after_matchday' => 'Cambios de plantilla hasta antes de la Fecha '.$rules['roster_lock_matchday'].'.',
+            default => 'Cambios de plantilla abiertos hasta que el organizador fije un tope.',
+        };
+
         return "W.O. por no presentación: resultado {$score} a favor del equipo presente. "
-            ."Tras {$n} inasistencia(s) el equipo queda descalificado y {$dq}.";
+            ."Tras {$n} inasistencia(s) el equipo queda descalificado y {$dq} "
+            .$roster
+            .' Jugadores por debajo de la categoría requieren autorización del master.';
     }
 }

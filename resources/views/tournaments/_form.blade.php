@@ -208,6 +208,32 @@
     </section>
 
     <section>
+        <h2 class="text-lg font-semibold mb-1">Gestión de plantilla (delegados)</h2>
+        <p class="text-sm text-slate-500 mb-4">
+            Por defecto queda abierta. Cuando quieras, fijá hasta cuándo los delegados pueden cargar o cambiar jugadores.
+            Jugadores menores a la categoría requieren autorización del master.
+        </p>
+        <div class="grid gap-5 md:grid-cols-2" x-data="{ mode: @js(old('roster_lock_mode', $cr['roster_lock_mode'] ?? 'open')) }">
+            <div class="md:col-span-2">
+                <label class="text-sm text-slate-600">Tope para cambios de plantilla</label>
+                <select name="roster_lock_mode" class="field" x-model="mode">
+                    <option value="open">Abierta (sin tope todavía)</option>
+                    <option value="until_date">Hasta una fecha</option>
+                    <option value="after_matchday">Hasta antes de una fecha de fixture</option>
+                </select>
+            </div>
+            <div x-show="mode === 'until_date'">
+                <label class="text-sm text-slate-600">Fecha límite de cambios</label>
+                <input type="date" name="roster_lock_until" value="{{ old('roster_lock_until', $cr['roster_lock_until'] ?? '') }}" class="field">
+            </div>
+            <div x-show="mode === 'after_matchday'">
+                <label class="text-sm text-slate-600">Cierra al disputarse la Fecha N°</label>
+                <input type="number" name="roster_lock_matchday" min="1" max="40" value="{{ old('roster_lock_matchday', $cr['roster_lock_matchday'] ?? 1) }}" class="field">
+            </div>
+        </div>
+    </section>
+
+    <section>
         <h2 class="text-lg font-semibold mb-1">Reglamento para los jugadores</h2>
         <p class="text-sm text-slate-500 mb-4">Esto se publica para que nadie diga que no conocía las normas.</p>
         <div class="grid gap-5">

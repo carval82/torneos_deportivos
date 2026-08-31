@@ -85,11 +85,46 @@
                                     · {{ $team->pivot->no_show_count }} W.O.
                                 @endif
                             </p>
-                            <div class="mt-3 flex flex-wrap items-center gap-2">
+                            @if ($team->delegates->isNotEmpty())
+                                <div class="mt-2 space-y-1">
+                                    @foreach ($team->delegates as $delegate)
+                                        <p class="text-xs text-slate-600">
+                                            {{ $delegate->name }} · {{ $delegate->email }}
+                                            @if ($delegate->pivot->is_disciplinary_committee)
+                                                <span class="text-amber-700 font-semibold">· Comité</span>
+                                            @endif
+                                        </p>
+                                    @endforeach
+                                </div>
+                            @endif
+                            <details class="mt-3">
+                                <summary class="text-xs font-semibold text-arena-limeDark cursor-pointer">Crear / actualizar delegado</summary>
+                                <form method="POST" action="{{ route('tournaments.delegates.store', $tournament) }}" class="mt-3 grid gap-2">
+                                    @csrf
+                                    <input type="hidden" name="team_id" value="{{ $team->id }}">
+                                    <input name="name" class="field" placeholder="Nombre completo" required>
+                                    <input name="email" type="email" class="field" placeholder="Correo" required>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <select name="document_type" class="field">
+                                            <option value="Cédula">Cédula</option>
+                                            <option value="DNI">DNI</option>
+                                            <option value="Pasaporte">Pasaporte</option>
+                                        </select>
+                                        <input name="document_number" class="field" placeholder="Documento (= clave)" required>
+                                    </div>
+                                    <label class="inline-flex items-center gap-2 text-xs text-slate-600">
+                                        <input type="checkbox" name="is_disciplinary_committee" value="1" class="rounded border-slate-300">
+                                        Es del comité disciplinario
+                                    </label>
+                                    <button class="btn-primary text-xs">Guardar delegado</button>
+                                    <p class="text-[11px] text-slate-500">La contraseña inicial es el número de documento.</p>
+                                </form>
+                            </details>
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
                                 <form method="POST" action="{{ route('tournaments.invites.create', $tournament) }}">
                                     @csrf
                                     <input type="hidden" name="team_id" value="{{ $team->id }}">
-                                    <button class="btn-ghost text-xs px-3 py-1.5">Invitar delegado</button>
+                                    <button class="btn-ghost text-xs px-3 py-1.5">Link de invitación</button>
                                 </form>
                                 @if (($activeInvites[$team->id] ?? null))
                                     <button
@@ -173,35 +208,102 @@
     @endif
 
     @if ($tab === 'sanciones')
-        <div class="card overflow-hidden">
-            <div class="px-5 py-4 border-b border-slate-100">
-                <h2 class="font-semibold">Jugadores sancionados</h2>
-                <p class="text-sm text-slate-500">Roja = {{ $tournament->red_ban_matches ?: 1 }} fecha(s). Doble amarilla = {{ $tournament->double_yellow_ban_matches ?: 1 }} fecha(s).</p>
+        <div class="grid gap-6 lg:grid-cols-3">
+            <div class="lg:col-span-2 space-y-6">
+                <div class="card overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-100">
+                        <h2 class="font-semibold">Jugadores sancionados</h2>
+                        <p class="text-sm text-slate-500">Roja = {{ $tournament->red_ban_matches ?: 1 }} fecha(s). Doble amarilla = {{ $tournament->double_yellow_ban_matches ?: 1 }} fecha(s). El comité también puede emitir sentencias.</p>
+                    </div>
+                    <div class="table-shell border-0 rounded-none">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Jugador</th>
+                                    <th>Equipo</th>
+                                    <th>Motivo</th>
+                                    <th>Restan</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($suspensions as $suspension)
+                                    <tr>
+                                        <td class="font-medium">{{ $suspension->player?->displayName() }}</td>
+                                        <td>{{ $suspension->team?->name }}</td>
+                                        <td>{{ $suspension->label() }} · {{ $suspension->reason }}</td>
+                                        <td>{{ $suspension->matches_remaining }} / {{ $suspension->matches_total }}</td>
+                                        <td>
+                                            @if ($canDiscipline && $suspension->source === 'committee')
+                                                <form method="POST" action="{{ route('sentences.revoke', $suspension) }}">
+                                                    @csrf
+                                                    <button class="text-xs text-rose-700 font-semibold">Revocar</button>
+                                                </form>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="5" class="text-slate-500">No hay sanciones activas.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                @if (auth()->user()?->isAdmin() && $pendingExceptions->isNotEmpty())
+                    <div class="card p-5">
+                        <h2 class="font-semibold mb-3">Excepciones de edad pendientes</h2>
+                        <div class="space-y-3">
+                            @foreach ($pendingExceptions as $exception)
+                                <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                                    <p class="font-medium">{{ $exception->player?->displayName() }} · {{ $exception->team?->name }}</p>
+                                    <p class="text-sm text-slate-600 mt-1">{{ $exception->reason }}</p>
+                                    <form method="POST" action="{{ route('exceptions.review', $exception) }}" class="mt-3 flex flex-wrap gap-2">
+                                        @csrf
+                                        <input name="review_notes" class="field" placeholder="Nota del master (opcional)">
+                                        <button name="status" value="approved" class="btn-primary text-xs">Aprobar</button>
+                                        <button name="status" value="rejected" class="btn-ghost text-xs text-rose-700">Rechazar</button>
+                                    </form>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             </div>
-            <div class="table-shell border-0 rounded-none">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Jugador</th>
-                            <th>Equipo</th>
-                            <th>Motivo</th>
-                            <th>Restan</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($suspensions as $suspension)
-                            <tr>
-                                <td class="font-medium">{{ $suspension->player?->displayName() }}</td>
-                                <td>{{ $suspension->team?->name }}</td>
-                                <td>{{ $suspension->label() }} · {{ $suspension->reason }}</td>
-                                <td>{{ $suspension->matches_remaining }} / {{ $suspension->matches_total }}</td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="4" class="text-slate-500">No hay sanciones activas.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+
+            @if ($canDiscipline)
+                <section class="card p-5 h-fit">
+                    <h2 class="font-semibold mb-2">Emitir sentencia</h2>
+                    <p class="text-xs text-slate-500 mb-4">Comité disciplinario / organizador / master.</p>
+                    <form method="POST" action="{{ route('sentences.store', $tournament) }}" class="space-y-3">
+                        @csrf
+                        <div>
+                            <label class="text-sm text-slate-600">Jugador</label>
+                            <select name="player_id" class="field" required>
+                                <option value="">Elegí jugador</option>
+                                @foreach ($tournament->teams as $team)
+                                    @foreach ($team->players as $player)
+                                        <option value="{{ $player->id }}">{{ $team->short_name ?: $team->name }} · {{ $player->displayName() }}</option>
+                                    @endforeach
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-sm text-slate-600">Fechas de sanción</label>
+                            <input type="number" name="matches" min="1" max="20" value="1" class="field" required>
+                        </div>
+                        <div>
+                            <label class="text-sm text-slate-600">Motivo</label>
+                            <input name="reason" class="field" placeholder="Agresión, insultos, etc." required>
+                        </div>
+                        <div>
+                            <label class="text-sm text-slate-600">Detalle</label>
+                            <textarea name="notes" rows="3" class="field" placeholder="Fundamento de la sentencia"></textarea>
+                        </div>
+                        <button class="btn-primary w-full">Registrar sentencia</button>
+                    </form>
+                </section>
+            @endif
         </div>
     @endif
 

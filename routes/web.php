@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DelegateRosterController;
+use App\Http\Controllers\DisciplinarySentenceController;
+use App\Http\Controllers\EligibilityExceptionController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\PlayerPortalController;
@@ -10,6 +12,7 @@ use App\Http\Controllers\PublicTournamentController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TeamInviteController;
 use App\Http\Controllers\TournamentController;
+use App\Http\Controllers\TournamentDelegateController;
 use App\Http\Controllers\TournamentPaymentController;
 use Illuminate\Support\Facades\Route;
 
@@ -36,6 +39,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/delegado/equipos/{team}/jugadores', [DelegateRosterController::class, 'storePlayer'])->name('delegate.players.store');
     Route::put('/delegado/equipos/{team}/jugadores/{player}', [DelegateRosterController::class, 'updatePlayer'])->name('delegate.players.update');
 
+    Route::post('/torneos/{tournament}/excepciones', [EligibilityExceptionController::class, 'store'])->name('exceptions.store');
+    Route::post('/excepciones/{exception}/revisar', [EligibilityExceptionController::class, 'review'])->name('exceptions.review');
+    Route::post('/torneos/{tournament}/sentencias', [DisciplinarySentenceController::class, 'store'])->name('sentences.store');
+    Route::post('/sentencias/{suspension}/revocar', [DisciplinarySentenceController::class, 'revoke'])->name('sentences.revoke');
+
     // Torneo “público” solo para usuarios logueados (jugador/delegado/organizador/master)
     Route::prefix('t')->name('public.tournaments.')->group(function () {
         Route::get('{slug}', [PublicTournamentController::class, 'show'])->name('show');
@@ -57,6 +65,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('tournaments/{tournament}/renew', [TournamentController::class, 'renew'])->name('tournaments.renew');
         Route::post('tournaments/{tournament}/teams', [TournamentController::class, 'enrollTeam'])->name('tournaments.enroll');
         Route::post('tournaments/{tournament}/invites', [TeamInviteController::class, 'create'])->name('tournaments.invites.create');
+        Route::post('tournaments/{tournament}/delegates', [TournamentDelegateController::class, 'store'])->name('tournaments.delegates.store');
+        Route::patch('tournaments/{tournament}/delegates/{user}', [TournamentDelegateController::class, 'updateCommittee'])->name('tournaments.delegates.committee');
         Route::post('tournaments/{tournament}/fixture', [TournamentController::class, 'generateFixture'])->name('tournaments.fixture');
         Route::delete('tournaments/{tournament}/fixture', [TournamentController::class, 'resetFixture'])->name('tournaments.fixture.reset');
         Route::post('tournaments/{tournament}/postpone-matchday', [TournamentController::class, 'postponeMatchday'])->name('tournaments.postpone-matchday');

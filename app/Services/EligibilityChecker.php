@@ -2,19 +2,21 @@
 
 namespace App\Services;
 
+use App\Models\EligibilityException;
 use App\Models\Player;
 use App\Models\Tournament;
 
 class EligibilityChecker
 {
     /**
-     * @return array{eligible: bool, age: int|null, reason: string|null, warnings: array<int, string>}
+     * @return array{eligible: bool, age: int|null, reason: string|null, warnings: array<int, string>, exception: ?EligibilityException}
      */
     public function check(Player $player, ?Tournament $tournament = null): array
     {
         $reference = $tournament?->start_date ?? now();
         $age = $player->age($reference);
         $warnings = [];
+        $exception = null;
 
         if (! $player->birthdate) {
             return [
@@ -22,6 +24,7 @@ class EligibilityChecker
                 'age' => null,
                 'reason' => 'Falta la fecha de nacimiento.',
                 'warnings' => ['Sin fecha de nacimiento no se puede validar el límite de edad.'],
+                'exception' => null,
             ];
         }
 
@@ -39,8 +42,14 @@ class EligibilityChecker
                 'age' => $age,
                 'reason' => null,
                 'warnings' => $warnings,
+                'exception' => null,
             ];
         }
+
+        $exception = EligibilityException::query()
+            ->where('tournament_id', $tournament->id)
+            ->where('player_id', $player->id)
+            ->first();
 
         $minAge = $tournament->effectiveMinAge();
         $maxAge = $tournament->effectiveMaxAge();
@@ -48,11 +57,29 @@ class EligibilityChecker
         $label = $tournament->ageLabel();
 
         if ($minAge !== null && $age < $minAge) {
+            if ($exception?->isApproved()) {
+                $warnings[] = "Menor a la categoría ({$age} años). Autorizado por master.";
+
+                return [
+                    'eligible' => true,
+                    'age' => $age,
+                    'reason' => null,
+                    'warnings' => $warnings,
+                    'exception' => $exception,
+                ];
+            }
+
+            $reason = "Tiene {$age} años y el reglamento ({$label}) pide mínimo {$minAge}.";
+            if ($exception?->status === EligibilityException::STATUS_PENDING) {
+                $warnings[] = 'Excepción de edad pendiente de aprobación del master.';
+            }
+
             return [
                 'eligible' => false,
                 'age' => $age,
-                'reason' => "Tiene {$age} años y el reglamento ({$label}) pide mínimo {$minAge}.",
+                'reason' => $reason,
                 'warnings' => $warnings,
+                'exception' => $exception,
             ];
         }
 
@@ -62,6 +89,7 @@ class EligibilityChecker
                 'age' => $age,
                 'reason' => "Tiene {$age} años y supera el tope de {$maxAge} definido en {$label}.",
                 'warnings' => $warnings,
+                'exception' => $exception,
             ];
         }
 
@@ -71,6 +99,7 @@ class EligibilityChecker
                 'age' => $age,
                 'reason' => "El género del jugador no coincide con la regla del torneo ({$tournament->genderLabel()}).",
                 'warnings' => $warnings,
+                'exception' => $exception,
             ];
         }
 
@@ -79,6 +108,7 @@ class EligibilityChecker
             'age' => $age,
             'reason' => null,
             'warnings' => $warnings,
+            'exception' => $exception,
         ];
     }
 }

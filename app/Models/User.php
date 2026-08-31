@@ -98,7 +98,7 @@ class User extends Authenticatable
     public function teams(): BelongsToMany
     {
         return $this->belongsToMany(Team::class, 'team_user')
-            ->withPivot('role')
+            ->withPivot(['role', 'is_disciplinary_committee'])
             ->withTimestamps();
     }
 
@@ -109,5 +109,21 @@ class User extends Authenticatable
         }
 
         return $this->teams()->where('teams.id', $teamId)->exists();
+    }
+
+    public function canIssueDisciplinarySentence(Tournament $tournament): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        if ((int) $tournament->user_id === (int) $this->id) {
+            return true;
+        }
+
+        return $this->teams()
+            ->wherePivot('is_disciplinary_committee', true)
+            ->whereHas('tournaments', fn ($q) => $q->where('tournaments.id', $tournament->id))
+            ->exists();
     }
 }
