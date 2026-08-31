@@ -84,11 +84,9 @@ class PublicTournamentController extends Controller
 
     private function findPublic(string $slug): Tournament
     {
-        $tournament = Tournament::query()
+        // App cerrada: solo usuarios logueados llegan acá.
+        return Tournament::query()
             ->where('public_slug', $slug)
-            ->where('is_public', true)
             ->firstOrFail();
-
-        return $tournament;
     }
 }

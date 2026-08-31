@@ -15,7 +15,7 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
-    public const ROLE_ADMIN = 'admin';
+    public const ROLE_ADMIN = 'admin'; // master
     public const ROLE_ORGANIZER = 'organizer';
     public const ROLE_DELEGATE = 'delegate';
     public const ROLE_PLAYER = 'player';
@@ -32,6 +32,8 @@ class User extends Authenticatable
         'document_number',
         'phone',
         'player_id',
+        'free_tournament_used',
+        'tournament_credits',
     ];
 
     /**
@@ -47,12 +49,20 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'free_tournament_used' => 'boolean',
+            'tournament_credits' => 'integer',
         ];
     }
 
     public function isAdmin(): bool
     {
         return $this->role === self::ROLE_ADMIN;
+    }
+
+    /** Alias de master / administrador de la plataforma. */
+    public function isMaster(): bool
+    {
+        return $this->isAdmin();
     }
 
     public function isOrganizer(): bool
@@ -78,6 +88,11 @@ class User extends Authenticatable
     public function tournaments(): HasMany
     {
         return $this->hasMany(Tournament::class);
+    }
+
+    public function tournamentPayments(): HasMany
+    {
+        return $this->hasMany(TournamentPayment::class);
     }
 
     public function teams(): BelongsToMany

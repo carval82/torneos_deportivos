@@ -25,8 +25,8 @@
             @endforeach
         </div>
         <div class="flex flex-wrap gap-2">
-            @if ($tournament->public_slug && $tournament->is_public)
-                <a href="{{ route('public.tournaments.show', $tournament->public_slug) }}" target="_blank" class="btn-accent">URL pública</a>
+            @if ($tournament->public_slug)
+                <a href="{{ route('public.tournaments.show', $tournament->public_slug) }}" class="btn-accent">Vista torneo</a>
             @endif
             @if ($tournament->rules_published)
                 <a href="{{ route('tournaments.rules', $tournament) }}" target="_blank" class="btn-ghost">Reglamento</a>

@@ -13,6 +13,7 @@ use App\Services\MatchdayScheduler;
 use App\Services\MatchSheetService;
 use App\Services\ProbabilityCalculator;
 use App\Services\StandingCalculator;
+use App\Services\TournamentBillingService;
 use App\Support\Slug;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class TournamentController extends Controller
         private readonly MatchdayScheduler $scheduler,
         private readonly DisciplineService $discipline,
         private readonly CompetitionRulesService $competitionRules,
+        private readonly TournamentBillingService $billing,
     ) {}
 
     public function index(): View
@@ -47,27 +49,85 @@ class TournamentController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(): View|RedirectResponse
     {
         $this->authorize('create', Tournament::class);
 
-        return view('tournaments.create', $this->formData());
+        $user = Auth::user();
+        if (! $this->billing->canCreateOrRenew($user)) {
+            return redirect()
+                ->route('billing.index')
+                ->withErrors([
+                    'billing' => 'Ya usaste tu torneo gratis. Para crear o renovar otro debés abonar $70.000 COP y esperar la aprobación del master.',
+                ]);
+        }
+
+        return view('tournaments.create', array_merge($this->formData(), [
+            'billingNote' => $user->isAdmin()
+                ? 'Master: sin límite de torneos.'
+                : ($user->free_tournament_used
+                    ? 'Este torneo consumirá 1 crédito pago.'
+                    : 'Este es tu torneo gratis incluido.'),
+        ]));
     }
 
     public function store(Request $request): RedirectResponse
     {
         $this->authorize('create', Tournament::class);
 
+        $billingType = $this->billing->consumeForCreate($request->user());
+
         $data = $this->validated($request);
         $data['user_id'] = Auth::id();
         $data['public_slug'] = Slug::uniqueTournament($data['name']);
-        $data['is_public'] = $request->boolean('is_public', true);
+        $data['is_public'] = false;
+        $data['billing_type'] = $billingType;
 
         $tournament = Tournament::create($data);
 
         return redirect()
             ->route('tournaments.show', $tournament)
-            ->with('status', 'Torneo creado. Publicá el reglamento, inscribí equipos y generá el fixture.');
+            ->with('status', 'Torneo creado ('.($billingType === 'free' ? 'gratis' : 'pago').'). Inscribí equipos y generá el fixture.');
+    }
+
+    public function renew(Request $request, Tournament $tournament): RedirectResponse
+    {
+        $this->authorize('update', $tournament);
+
+        $user = $request->user();
+        abort_unless($user->isAdmin() || $tournament->user_id === $user->id, 403);
+
+        if (! $this->billing->canCreateOrRenew($user)) {
+            return redirect()
+                ->route('billing.index')
+                ->withErrors([
+                    'billing' => 'Para renovar necesitás abonar $70.000 COP (1 torneo). Solicitá la activación al master.',
+                ]);
+        }
+
+        $billingType = $this->billing->consumeForCreate($user);
+
+        $replica = $tournament->replicate([
+            'public_slug',
+            'status',
+            'start_date',
+            'end_date',
+        ]);
+        $replica->name = $tournament->name.' · Renovación';
+        $replica->season = (string) (now()->year);
+        $replica->status = Tournament::STATUS_DRAFT;
+        $replica->public_slug = Slug::uniqueTournament($replica->name);
+        $replica->is_public = false;
+        $replica->billing_type = $billingType;
+        $replica->renewed_from_id = $tournament->id;
+        $replica->user_id = $tournament->user_id;
+        $replica->start_date = now()->toDateString();
+        $replica->end_date = null;
+        $replica->save();
+
+        return redirect()
+            ->route('tournaments.show', $replica)
+            ->with('status', 'Torneo renovado ('.($billingType === 'free' ? 'gratis' : 'pago').'). Configurá fechas y generá el fixture.');
     }
 
     public function show(Request $request, Tournament $tournament): View

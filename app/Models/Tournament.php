@@ -39,6 +39,8 @@ class Tournament extends Model
         'name',
         'public_slug',
         'is_public',
+        'billing_type',
+        'renewed_from_id',
         'season',
         'format',
         'status',
@@ -81,6 +83,11 @@ class Tournament extends Model
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function renewedFrom(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'renewed_from_id');
     }
 
     public function invites(): HasMany

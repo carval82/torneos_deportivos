@@ -10,14 +10,6 @@ use Illuminate\Support\Facades\Route;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/player/login', [PlayerAuthController::class, 'login'])->middleware('throttle:10,1');
 
-Route::prefix('public/tournaments')->group(function () {
-    Route::get('{slug}', [PublicTournamentApiController::class, 'show']);
-    Route::get('{slug}/fixture', [PublicTournamentApiController::class, 'fixture']);
-    Route::get('{slug}/standings', [PublicTournamentApiController::class, 'standings']);
-    Route::get('{slug}/scorers', [PublicTournamentApiController::class, 'scorers']);
-    Route::get('{slug}/rules', [PublicTournamentApiController::class, 'rules']);
-});
-
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
@@ -27,6 +19,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/delegate/teams', [DelegateApiController::class, 'teams']);
     Route::get('/delegate/teams/{team}/roster', [DelegateApiController::class, 'roster']);
     Route::post('/delegate/teams/{team}/players', [DelegateApiController::class, 'storePlayer']);
+
+    // Vista de torneo por slug (requiere token)
+    Route::prefix('t')->group(function () {
+        Route::get('{slug}', [PublicTournamentApiController::class, 'show']);
+        Route::get('{slug}/fixture', [PublicTournamentApiController::class, 'fixture']);
+        Route::get('{slug}/standings', [PublicTournamentApiController::class, 'standings']);
+        Route::get('{slug}/scorers', [PublicTournamentApiController::class, 'scorers']);
+        Route::get('{slug}/rules', [PublicTournamentApiController::class, 'rules']);
+    });
 
     Route::get('/tournaments', [TournamentApiController::class, 'index']);
     Route::get('/tournaments/{tournament}', [TournamentApiController::class, 'show']);

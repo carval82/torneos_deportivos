@@ -193,11 +193,9 @@
                 <input type="checkbox" name="rules_published" value="1" class="rounded border-slate-300 bg-white text-arena-limeDark" @checked(old('rules_published', $tournament->rules_published ?? true))>
                 Publicar reglamento para jugadores y equipos
             </label>
-            <label class="inline-flex items-center gap-2 mt-3 text-sm text-slate-600">
-                <input type="hidden" name="is_public" value="0">
-                <input type="checkbox" name="is_public" value="1" class="rounded border-slate-300 bg-white text-arena-limeDark" @checked(old('is_public', $tournament->is_public ?? true))>
-                Torneo público (fixture, tabla y goleadores en URL abierta)
-            </label>
+            <p class="mt-3 text-xs text-slate-500">
+                La app es privada: solo organizador, delegado, jugador y master pueden entrar.
+            </p>
         </div>
     </section>
 </div>

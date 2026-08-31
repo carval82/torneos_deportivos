@@ -77,7 +77,6 @@ class PublicTournamentApiController extends Controller
     {
         return Tournament::query()
             ->where('public_slug', $slug)
-            ->where('is_public', true)
             ->firstOrFail();
     }
 }

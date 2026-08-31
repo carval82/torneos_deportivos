@@ -9,6 +9,7 @@
             ['route' => 'teams.index', 'label' => 'Equipos', 'match' => 'teams.*'],
             ['route' => 'players.index', 'label' => 'Jugadores', 'match' => 'players.*'],
             ['route' => 'delegate.index', 'label' => 'Delegados', 'match' => 'delegate.*'],
+            ['route' => 'billing.index', 'label' => $user->isMaster() ? 'Pagos master' : 'Activación', 'match' => 'billing.*'],
         ];
     } elseif ($user->role === 'delegate') {
         $links = [
@@ -62,7 +63,7 @@
         <div class="mt-10 mx-1 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-white/70">
             <p class="font-semibold text-white">{{ $user->name }}</p>
             <p class="mt-1 break-all">{{ $user->email }}</p>
-            <p class="mt-2 uppercase tracking-wider text-arena-lime/80">{{ $user->role }}</p>
+            <p class="mt-2 uppercase tracking-wider text-arena-lime/80">{{ $user->isMaster() ? 'master' : $user->role }}</p>
         </div>
     </nav>
 </aside>

@@ -36,12 +36,12 @@
                     Gestioná torneos y eventos con la pasión que nos une.
                 </h1>
                 <p class="mt-6 text-lg text-white/80">
-                    Fixture, tabla, goleadores, W.O., sanciones, asistencia y planillas con documento. Todo listo para organizar Arena Players.
+                    Acceso solo con login: organizador, delegado o jugador. El primer torneo del organizador es gratis; crear o renovar otro cuesta $70.000 COP (aprueba el master).
                 </p>
                 <div class="mt-10 flex flex-wrap gap-3">
-                    <a href="{{ route('register') }}" class="btn-accent">Crear torneo</a>
+                    <a href="{{ route('register') }}" class="btn-accent">Soy organizador</a>
                     <a href="{{ route('player.login') }}" class="btn border border-white/25 bg-white/10 text-white hover:bg-white/15">Soy jugador</a>
-                    <a href="{{ route('login') }}" class="btn border border-white/25 bg-white/10 text-white hover:bg-white/15">Organizador</a>
+                    <a href="{{ route('login') }}" class="btn border border-white/25 bg-white/10 text-white hover:bg-white/15">Entrar</a>
                 </div>
             </div>
 
