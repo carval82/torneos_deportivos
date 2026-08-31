@@ -55,6 +55,7 @@ class Tournament extends Model
         'fields',
         'play_days',
         'match_start_time',
+        'match_start_times',
         'match_interval_minutes',
         'days_between_rounds',
         'field_surface',
@@ -76,6 +77,7 @@ class Tournament extends Model
             'is_public' => 'boolean',
             'fields' => 'array',
             'play_days' => 'array',
+            'match_start_times' => 'array',
             'competition_rules' => 'array',
         ];
     }
@@ -236,6 +238,44 @@ class Tournament extends Model
         return collect($this->playDayList())
             ->map(fn ($day) => self::WEEKDAYS[$day] ?? $day)
             ->implode(', ');
+    }
+
+    /**
+     * Horarios manuales de cada turno en una fecha (ej. 09:00, 10:30, 12:00).
+     *
+     * @return list<string>
+     */
+    public function timeSlotList(): array
+    {
+        $times = collect($this->match_start_times ?? [])
+            ->map(fn ($time) => $this->normalizeTime($time))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($times->isEmpty() && $this->match_start_time) {
+            $times->push($this->normalizeTime($this->match_start_time));
+        }
+
+        $times = $times->filter()->unique()->sort()->values();
+
+        return $times->isNotEmpty() ? $times->all() : ['09:00'];
+    }
+
+    public function timeSlotsLabel(): string
+    {
+        return implode(' · ', $this->timeSlotList());
+    }
+
+    private function normalizeTime(mixed $time): ?string
+    {
+        if ($time === null || $time === '') {
+            return null;
+        }
+
+        $value = substr((string) $time, 0, 5);
+
+        return preg_match('/^\d{2}:\d{2}$/', $value) ? $value : null;
     }
 
     public function effectiveMinAge(): ?int

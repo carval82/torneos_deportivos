@@ -2,6 +2,12 @@
     $fieldsText = old('fields_text', isset($tournament) ? implode("\n", $tournament->fieldList()) : "Cancha 1\nCancha 2\nCancha 3\nCancha 4\nCancha 5");
     $selectedDays = old('play_days', $tournament->play_days ?? [0]);
     $selectedDays = array_map('intval', $selectedDays);
+    $defaultTimes = isset($tournament) ? $tournament->timeSlotList() : ['09:00', '10:30', '12:00'];
+    $selectedTimes = old('match_start_times', $defaultTimes);
+    if (! is_array($selectedTimes) || $selectedTimes === []) {
+        $selectedTimes = ['09:00'];
+    }
+    $selectedTimes = array_values($selectedTimes);
 @endphp
 @csrf
 
@@ -100,14 +106,39 @@
                     @endforeach
                 </div>
             </div>
-            <div>
-                <label class="text-sm text-slate-600">Hora de inicio</label>
-                <input type="time" name="match_start_time" value="{{ old('match_start_time', isset($tournament) && $tournament->match_start_time ? \Illuminate\Support\Str::of($tournament->match_start_time)->substr(0,5) : '09:00') }}" class="field">
+            <div class="md:col-span-2" x-data='{ times: @json($selectedTimes) }'>
+                <label class="text-sm text-slate-600 mb-2 block">Horarios de cada fecha (manual)</label>
+                <p class="text-xs text-slate-500 mb-3">
+                    Poné vos los turnos de la jornada (ej. 09:00, 10:30, 12:00, 14:00).
+                    El fixture usa primero todas las canchas en el primer horario, después el siguiente, y así.
+                </p>
+                <div class="space-y-2">
+                    <template x-for="(time, index) in times" :key="index">
+                        <div class="flex items-center gap-2">
+                            <input type="time" name="match_start_times[]" x-model="times[index]" class="field max-w-[10rem]" required>
+                            <button
+                                type="button"
+                                class="btn-ghost text-rose-700"
+                                x-show="times.length > 1"
+                                @click="times.splice(index, 1)"
+                            >
+                                Quitar
+                            </button>
+                        </div>
+                    </template>
+                </div>
+                <button
+                    type="button"
+                    class="btn-ghost mt-3"
+                    @click="times.push('15:00')"
+                >
+                    + Agregar horario
+                </button>
             </div>
             <div>
-                <label class="text-sm text-slate-600">Minutos entre turnos</label>
+                <label class="text-sm text-slate-600">Minutos extra si faltan turnos</label>
                 <input type="number" name="match_interval_minutes" min="30" max="240" value="{{ old('match_interval_minutes', $tournament->match_interval_minutes ?? 90) }}" class="field">
-                <p class="text-xs text-slate-500 mt-1">Si hay más partidos que canchas, la jornada abre varios turnos (ej. 09:00, 10:30, 12:00) y cada uno usa todas las canchas.</p>
+                <p class="text-xs text-slate-500 mt-1">Solo se usa si hay más partidos que canchas × horarios cargados.</p>
             </div>
             <div>
                 <label class="text-sm text-slate-600">Días entre fechas</label>

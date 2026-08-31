@@ -155,9 +155,8 @@
             {{ $tournament->fieldSurfaceLabel() }} ·
             cada {{ $tournament->days_between_rounds ?: 7 }} días ·
             {{ implode(', ', $tournament->fieldList()) }}.
-            Si hay más partidos que canchas, la fecha se reparte en <strong>varios turnos</strong>
-            (arranca {{ $tournament->match_start_time ? \Illuminate\Support\Str::of($tournament->match_start_time)->substr(0, 5) : '09:00' }},
-            cada {{ $tournament->match_interval_minutes ?: 90 }} min).
+            Horarios de cada fecha: <strong>{{ $tournament->timeSlotsLabel() }}</strong>.
+            Primero se llenan todas las canchas en el primer turno, después el siguiente.
             Si el clima posterga toda la fecha, usá <strong>Aplazar fecha completa</strong>.
         </div>
 

@@ -352,6 +352,8 @@ class TournamentController extends Controller
             'play_days' => ['nullable', 'array'],
             'play_days.*' => ['integer', 'between:0,6'],
             'match_start_time' => ['nullable', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
+            'match_start_times' => ['nullable', 'array', 'min:1'],
+            'match_start_times.*' => ['required', 'regex:/^\d{2}:\d{2}(:\d{2})?$/'],
             'match_interval_minutes' => ['nullable', 'integer', 'min:30', 'max:240'],
             'days_between_rounds' => ['nullable', 'integer', 'min:1', 'max:30'],
             'field_surface' => ['nullable', 'in:natural,artificial,mixed'],
@@ -405,9 +407,23 @@ class TournamentController extends Controller
             'count_wo_in_standings' => true,
         ]);
 
-        if (! empty($data['match_start_time'])) {
-            $data['match_start_time'] = substr($data['match_start_time'], 0, 5);
+        $times = collect($data['match_start_times'] ?? [])
+            ->map(fn ($time) => substr((string) $time, 0, 5))
+            ->filter(fn ($time) => (bool) preg_match('/^\d{2}:\d{2}$/', $time))
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        if ($times === []) {
+            $fallback = ! empty($data['match_start_time'])
+                ? substr((string) $data['match_start_time'], 0, 5)
+                : '09:00';
+            $times = [$fallback];
         }
+
+        $data['match_start_times'] = $times;
+        $data['match_start_time'] = $times[0];
 
         unset(
             $data['fields_text'],

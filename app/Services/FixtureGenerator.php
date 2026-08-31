@@ -33,9 +33,7 @@ class FixtureGenerator
         $fields = $tournament->fieldList();
         $playDays = $tournament->playDayList();
         $start = ($tournament->start_date?->copy() ?? now())->startOfDay();
-        $time = $tournament->match_start_time
-            ? Carbon::parse($tournament->match_start_time)->format('H:i')
-            : '09:00';
+        $times = $tournament->timeSlotList();
         $interval = max(30, (int) ($tournament->match_interval_minutes ?: 90));
         $complex = $tournament->complex_name ?: $tournament->venue;
 
@@ -46,7 +44,7 @@ class FixtureGenerator
             (int) ($tournament->days_between_rounds ?: 7)
         );
 
-        return DB::transaction(function () use ($tournament, $pairs, $fields, $matchdayDates, $time, $interval, $complex) {
+        return DB::transaction(function () use ($tournament, $pairs, $fields, $matchdayDates, $times, $interval, $complex) {
             $created = 0;
             $slotCounters = [];
 
@@ -58,8 +56,9 @@ class FixtureGenerator
                 $fieldIndex = $slotIndex % count($fields);
                 $wave = intdiv($slotIndex, count($fields));
                 $date = $matchdayDates[$matchday] ?? $matchdayDates[1];
+                $time = $this->timeForWave($times, $wave, $interval);
                 [$hour, $minute] = array_map('intval', explode(':', $time));
-                $scheduled = $date->copy()->setTime($hour, $minute)->addMinutes($wave * $interval);
+                $scheduled = $date->copy()->setTime($hour, $minute);
 
                 Game::create([
                     'tournament_id' => $tournament->id,
@@ -81,6 +80,27 @@ class FixtureGenerator
 
             return $created;
         });
+    }
+
+    /**
+     * @param  list<string>  $times
+     */
+    public function timeForWave(array $times, int $wave, int $intervalMinutes): string
+    {
+        $times = array_values($times);
+        if ($times === []) {
+            $times = ['09:00'];
+        }
+
+        if (isset($times[$wave])) {
+            return $times[$wave];
+        }
+
+        // Si faltan horarios manuales, sigue desde el último + intervalo.
+        $last = Carbon::createFromFormat('H:i', $times[array_key_last($times)]);
+        $extra = ($wave - (count($times) - 1)) * max(30, $intervalMinutes);
+
+        return $last->copy()->addMinutes($extra)->format('H:i');
     }
 
     /**
