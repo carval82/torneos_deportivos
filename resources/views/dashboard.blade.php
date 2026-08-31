@@ -12,6 +12,7 @@
                 </p>
                 <div class="mt-6 flex flex-wrap gap-3">
                     <a href="{{ route('tournaments.create') }}" class="btn-accent">Nuevo torneo</a>
+                    <a href="{{ route('organizer.delegates.index') }}" class="btn border border-white/20 bg-white/10 text-white hover:bg-white/15">Crear delegado</a>
                     <a href="{{ route('tournaments.index') }}" class="btn border border-white/20 bg-white/10 text-white hover:bg-white/15">Ver torneos</a>
                 </div>
             </div>

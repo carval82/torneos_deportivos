@@ -8,7 +8,7 @@
             ['route' => 'tournaments.index', 'label' => 'Torneos', 'match' => 'tournaments.*'],
             ['route' => 'teams.index', 'label' => 'Equipos', 'match' => 'teams.*'],
             ['route' => 'players.index', 'label' => 'Jugadores', 'match' => 'players.*'],
-            ['route' => 'delegate.index', 'label' => 'Delegados', 'match' => 'delegate.*'],
+            ['route' => 'organizer.delegates.index', 'label' => 'Delegados', 'match' => 'organizer.delegates.*'],
             ['route' => 'billing.index', 'label' => $user->isMaster() ? 'Pagos master' : 'Activación', 'match' => 'billing.*'],
         ];
     } elseif ($user->role === 'delegate') {

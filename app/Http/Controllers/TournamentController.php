@@ -196,6 +196,7 @@ class TournamentController extends Controller
                 ->latest()
                 ->get(),
             'canDiscipline' => Auth::user()?->canIssueDisciplinarySentence($tournament) ?? false,
+            'allTeams' => Team::query()->orderBy('name')->get(),
         ]);
     }
 

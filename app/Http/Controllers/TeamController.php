@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Team;
+use App\Models\Tournament;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class TeamController extends Controller
@@ -32,9 +34,15 @@ class TeamController extends Controller
 
     public function show(Team $team): View
     {
-        $team->load(['players', 'tournaments.sport']);
+        $user = Auth::user();
+        $team->load(['players', 'tournaments.sport', 'delegates']);
 
-        return view('teams.show', compact('team'));
+        $tournaments = Tournament::query()
+            ->when($user && ! $user->isAdmin(), fn ($q) => $q->where('user_id', $user->id))
+            ->orderBy('name')
+            ->get();
+
+        return view('teams.show', compact('team', 'tournaments'));
     }
 
     public function edit(Team $team): View

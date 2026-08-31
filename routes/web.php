@@ -12,6 +12,7 @@ use App\Http\Controllers\PublicTournamentController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TeamInviteController;
 use App\Http\Controllers\TournamentController;
+use App\Http\Controllers\OrganizerDelegateController;
 use App\Http\Controllers\TournamentDelegateController;
 use App\Http\Controllers\TournamentPaymentController;
 use Illuminate\Support\Facades\Route;
@@ -61,6 +62,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/billing/{payment}/reject', [TournamentPaymentController::class, 'reject'])->name('billing.reject');
 
     Route::middleware('role:admin,organizer')->group(function () {
+        Route::get('/delegados', [OrganizerDelegateController::class, 'index'])->name('organizer.delegates.index');
+        Route::post('/delegados', [OrganizerDelegateController::class, 'store'])->name('organizer.delegates.store');
+
         Route::resource('tournaments', TournamentController::class);
         Route::post('tournaments/{tournament}/renew', [TournamentController::class, 'renew'])->name('tournaments.renew');
         Route::post('tournaments/{tournament}/teams', [TournamentController::class, 'enrollTeam'])->name('tournaments.enroll');

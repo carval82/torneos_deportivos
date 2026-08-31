@@ -5,6 +5,7 @@
     @php
         $tabs = [
             'resumen' => 'Resumen',
+            'delegados' => 'Delegados',
             'reglamento' => 'Reglamento',
             'fixture' => 'Fixture',
             'sanciones' => 'Sanciones',
@@ -96,31 +97,13 @@
                                         </p>
                                     @endforeach
                                 </div>
+                            @else
+                                <p class="mt-2 text-xs text-slate-400">Sin delegado</p>
                             @endif
-                            <details class="mt-3">
-                                <summary class="text-xs font-semibold text-arena-limeDark cursor-pointer">Crear / actualizar delegado</summary>
-                                <form method="POST" action="{{ route('tournaments.delegates.store', $tournament) }}" class="mt-3 grid gap-2">
-                                    @csrf
-                                    <input type="hidden" name="team_id" value="{{ $team->id }}">
-                                    <input name="name" class="field" placeholder="Nombre completo" required>
-                                    <input name="email" type="email" class="field" placeholder="Correo" required>
-                                    <div class="grid grid-cols-2 gap-2">
-                                        <select name="document_type" class="field">
-                                            <option value="Cédula">Cédula</option>
-                                            <option value="DNI">DNI</option>
-                                            <option value="Pasaporte">Pasaporte</option>
-                                        </select>
-                                        <input name="document_number" class="field" placeholder="Documento (= clave)" required>
-                                    </div>
-                                    <label class="inline-flex items-center gap-2 text-xs text-slate-600">
-                                        <input type="checkbox" name="is_disciplinary_committee" value="1" class="rounded border-slate-300">
-                                        Es del comité disciplinario
-                                    </label>
-                                    <button class="btn-primary text-xs">Guardar delegado</button>
-                                    <p class="text-[11px] text-slate-500">La contraseña inicial es el número de documento.</p>
-                                </form>
-                            </details>
                             <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <a href="{{ route('tournaments.show', ['tournament' => $tournament, 'tab' => 'delegados']) }}" class="btn-ghost text-xs px-3 py-1.5">
+                                    Asignar delegado
+                                </a>
                                 <form method="POST" action="{{ route('tournaments.invites.create', $tournament) }}">
                                     @csrf
                                     <input type="hidden" name="team_id" value="{{ $team->id }}">
@@ -156,6 +139,98 @@
                     <p class="mt-4 text-sm text-arena-navy">{{ $tournament->rules_summary }}</p>
                 @endif
                 <p class="mt-3 text-xs text-slate-500">{{ $competitionNarrative }}</p>
+            </section>
+        </div>
+    @endif
+
+    @if ($tab === 'delegados')
+        <div class="grid gap-6 lg:grid-cols-5">
+            <section class="card p-6 lg:col-span-2 h-fit">
+                <h2 class="font-semibold text-lg">Crear delegado y vincularlo</h2>
+                <p class="text-sm text-slate-500 mt-1 mb-5">
+                    Podés usar un equipo ya cargado o crear uno nuevo. Si no está en este torneo, se inscribe al guardar.
+                </p>
+                <form method="POST" action="{{ route('tournaments.delegates.store', $tournament) }}" class="space-y-4">
+                    @csrf
+                    <div>
+                        <label class="text-sm text-slate-600">Equipo existente</label>
+                        <select name="team_id" class="field">
+                            <option value="">Elegí equipo (o creá uno abajo)</option>
+                            @foreach ($allTeams as $team)
+                                <option value="{{ $team->id }}" @selected((int) old('team_id') === (int) $team->id)>{{ $team->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm text-slate-600">O crear equipo nuevo</label>
+                        <input name="new_team_name" value="{{ old('new_team_name') }}" class="field" placeholder="Ej. Las Tekas">
+                    </div>
+                    <div>
+                        <label class="text-sm text-slate-600">Nombre del delegado</label>
+                        <input name="name" value="{{ old('name') }}" class="field" required placeholder="Juan Pérez">
+                    </div>
+                    <div>
+                        <label class="text-sm text-slate-600">Correo</label>
+                        <input type="email" name="email" value="{{ old('email') }}" class="field" required placeholder="delegado@club.com">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-sm text-slate-600">Tipo doc.</label>
+                            <select name="document_type" class="field">
+                                @foreach (['Cédula', 'DNI', 'Pasaporte'] as $type)
+                                    <option value="{{ $type }}" @selected(old('document_type', 'Cédula') === $type)>{{ $type }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-sm text-slate-600">Documento (= clave)</label>
+                            <input name="document_number" value="{{ old('document_number') }}" class="field" required>
+                        </div>
+                    </div>
+                    <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                        <input type="checkbox" name="is_disciplinary_committee" value="1" class="rounded border-slate-300">
+                        Pertenece al comité disciplinario
+                    </label>
+                    <button class="btn-primary w-full">Crear y vincular</button>
+                </form>
+            </section>
+
+            <section class="card p-6 lg:col-span-3">
+                <h2 class="font-semibold text-lg mb-4">Equipos y delegados de este torneo</h2>
+                @forelse ($tournament->teams as $team)
+                    <div class="rounded-2xl border border-slate-100 px-4 py-3 mb-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <a href="{{ route('teams.show', $team) }}" class="font-semibold text-arena-navy hover:underline">{{ $team->name }}</a>
+                            <span class="text-xs text-slate-500">{{ $team->players->count() }} jugadores</span>
+                        </div>
+                        @forelse ($team->delegates as $delegate)
+                            <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+                                <p class="text-sm text-slate-600">
+                                    {{ $delegate->name }} · {{ $delegate->email }}
+                                    · {{ $delegate->document_type }} {{ $delegate->document_number }}
+                                    @if ($delegate->pivot->is_disciplinary_committee)
+                                        <span class="text-amber-700 font-semibold">· Comité</span>
+                                    @endif
+                                </p>
+                                <form method="POST" action="{{ route('tournaments.delegates.committee', [$tournament, $delegate]) }}">
+                                    @csrf
+                                    @method('PATCH')
+                                    <input type="hidden" name="team_id" value="{{ $team->id }}">
+                                    <input type="hidden" name="is_disciplinary_committee" value="{{ $delegate->pivot->is_disciplinary_committee ? 0 : 1 }}">
+                                    <button class="text-xs font-semibold text-arena-limeDark">
+                                        {{ $delegate->pivot->is_disciplinary_committee ? 'Quitar del comité' : 'Marcar comité' }}
+                                    </button>
+                                </form>
+                            </div>
+                        @empty
+                            <p class="text-sm text-slate-400 mt-2">Este equipo todavía no tiene delegado.</p>
+                        @endforelse
+                    </div>
+                @empty
+                    <div class="rounded-2xl border border-dashed border-slate-200 px-4 py-10 text-center text-slate-500">
+                        Todavía no hay equipos. Creá uno con el formulario de la izquierda al cargar el delegado.
+                    </div>
+                @endforelse
             </section>
         </div>
     @endif
