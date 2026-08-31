@@ -50,7 +50,7 @@
                         <div class="rounded-2xl border border-slate-100 px-4 py-3">
                             <p class="text-xs text-slate-500">{{ $game->tournament?->name }} · Fecha {{ $game->matchday }}</p>
                             <p class="font-medium mt-1">{{ $game->homeTeam?->name }} vs {{ $game->awayTeam?->name }}</p>
-                            <p class="text-sm text-slate-500">{{ optional($game->scheduled_at)->format('d/m/Y H:i') }} · {{ $game->field ?: 'Cancha' }}</p>
+                            <p class="text-sm text-slate-500">{{ optional($game->scheduled_at)->format('d/m/Y H:i') }} · {{ $game->locationLabel() }}</p>
                         </div>
                     @empty
                         <p class="text-slate-500">No hay partidos pendientes en tus torneos.</p>

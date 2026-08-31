@@ -39,7 +39,13 @@ class PublicTournamentController extends Controller
 
         return view('public.tournament', [
             'tournament' => $tournament,
-            'gamesByMatchday' => $tournament->games->groupBy('matchday'),
+            'gamesByMatchday' => $tournament->games
+                ->sortBy([
+                    ['matchday', 'asc'],
+                    ['scheduled_at', 'asc'],
+                    ['field_name', 'asc'],
+                ])
+                ->groupBy('matchday'),
             'section' => 'fixture',
         ]);
     }

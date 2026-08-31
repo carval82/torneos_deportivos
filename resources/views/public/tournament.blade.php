@@ -31,7 +31,11 @@
                 <div class="space-y-3">
                     @forelse ($upcoming as $game)
                         <div class="rounded-xl border border-slate-100 px-4 py-3">
-                            <p class="text-xs text-slate-500">Fecha {{ $game->matchday }} · {{ optional($game->scheduled_at)->format('d/m H:i') }}</p>
+                            <p class="text-xs text-slate-500">
+                                Fecha {{ $game->matchday }}
+                                · {{ optional($game->scheduled_at)->format('d/m H:i') ?? 'Sin hora' }}
+                                · {{ $game->locationLabel() }}
+                            </p>
                             <p class="font-medium mt-1">{{ $game->homeTeam?->name }} vs {{ $game->awayTeam?->name }}</p>
                         </div>
                     @empty
@@ -70,29 +74,14 @@
     @endif
 
     @if (($section ?? '') === 'fixture')
-        <div class="space-y-6">
+        <div class="space-y-2">
             @forelse (($gamesByMatchday ?? collect()) as $matchday => $games)
-                <section class="card p-6">
-                    <h2 class="font-semibold mb-4">Fecha {{ $matchday }}</h2>
-                    <div class="space-y-3">
-                        @foreach ($games as $game)
-                            <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 px-4 py-3">
-                                <div>
-                                    <p class="font-medium">{{ $game->homeTeam?->name }} vs {{ $game->awayTeam?->name }}</p>
-                                    <p class="text-sm text-slate-500">{{ optional($game->scheduled_at)->format('d/m/Y H:i') }} · {{ $game->field ?: 'Cancha' }}</p>
-                                </div>
-                                <div class="text-sm font-semibold">
-                                    @if ($game->status === 'finished')
-                                        {{ $game->home_score }} – {{ $game->away_score }}
-                                        @if (!empty($game->is_walkover)) <span class="text-rose-600">W.O.</span> @endif
-                                    @else
-                                        Tentativo
-                                    @endif
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                </section>
+                <x-matchday-schedule
+                    :games="$games"
+                    :matchday="$matchday"
+                    :tournament="$tournament"
+                    :admin="false"
+                />
             @empty
                 <div class="card p-8 text-slate-500">Fixture aún no publicado.</div>
             @endforelse

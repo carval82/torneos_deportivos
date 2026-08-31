@@ -171,7 +171,13 @@ class TournamentController extends Controller
             'availableTeams' => $availableTeams,
             'eligibility' => $eligibility,
             'matchOdds' => $matchOdds,
-            'gamesByMatchday' => $tournament->games->groupBy('matchday'),
+            'gamesByMatchday' => $tournament->games
+                ->sortBy([
+                    ['matchday', 'asc'],
+                    ['scheduled_at', 'asc'],
+                    ['field_name', 'asc'],
+                ])
+                ->groupBy('matchday'),
             'suspensions' => $this->discipline->activeForTournament($tournament->id),
             'competitionRules' => $this->competitionRules->for($tournament),
             'competitionNarrative' => $this->competitionRules->narrative($tournament),

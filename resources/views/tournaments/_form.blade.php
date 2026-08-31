@@ -107,7 +107,7 @@
             <div>
                 <label class="text-sm text-slate-600">Minutos entre turnos</label>
                 <input type="number" name="match_interval_minutes" min="30" max="240" value="{{ old('match_interval_minutes', $tournament->match_interval_minutes ?? 90) }}" class="field">
-                <p class="text-xs text-slate-500 mt-1">Si hay más partidos que canchas, se abren turnos (09:00, 10:30…).</p>
+                <p class="text-xs text-slate-500 mt-1">Si hay más partidos que canchas, la jornada abre varios turnos (ej. 09:00, 10:30, 12:00) y cada uno usa todas las canchas.</p>
             </div>
             <div>
                 <label class="text-sm text-slate-600">Días entre fechas</label>

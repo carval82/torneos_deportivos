@@ -155,86 +155,19 @@
             {{ $tournament->fieldSurfaceLabel() }} ·
             cada {{ $tournament->days_between_rounds ?: 7 }} días ·
             {{ implode(', ', $tournament->fieldList()) }}.
-            Si el clima posterga toda la fecha, usá <strong>Aplazar fecha completa</strong>: se pasa al próximo {{ $tournament->playDaysLabel() }} y las fechas siguientes se corren para no pisarse.
+            Si hay más partidos que canchas, la fecha se reparte en <strong>varios turnos</strong>
+            (arranca {{ $tournament->match_start_time ? \Illuminate\Support\Str::of($tournament->match_start_time)->substr(0, 5) : '09:00' }},
+            cada {{ $tournament->match_interval_minutes ?: 90 }} min).
+            Si el clima posterga toda la fecha, usá <strong>Aplazar fecha completa</strong>.
         </div>
 
         @forelse ($gamesByMatchday as $matchday => $games)
-            <section class="card mb-5 overflow-hidden">
-                <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50">
-                    <div>
-                        <h3 class="font-semibold">Fecha {{ $matchday }}</h3>
-                        <p class="text-xs text-slate-500">
-                            {{ optional($games->first()->scheduled_at)->format('d/m/Y') ?? 'Sin fecha' }}
-                            · {{ $games->count() }} partidos
-                        </p>
-                    </div>
-                    @if ($games->where('status', '!=', 'finished')->count())
-                        <x-confirm-button
-                            :action="route('tournaments.postpone-matchday', $tournament)"
-                            title="¿Aplazar la Fecha {{ $matchday }}?"
-                            :message="'Se reprograma al próximo '.$tournament->playDaysLabel().' y también se corren las fechas siguientes.'"
-                            confirm="Sí, aplazar fecha"
-                            tone="amber"
-                            class="btn-ghost text-amber-700 border-amber-200"
-                        >
-                            <x-slot:form>
-                                <input type="hidden" name="matchday" value="{{ $matchday }}">
-                                <div>
-                                    <label class="text-sm text-slate-600">Motivo</label>
-                                    <input name="reason" value="Postergada por clima / cancha natural" class="field" placeholder="Lluvia, cancha en mal estado...">
-                                </div>
-                            </x-slot:form>
-                            Aplazar fecha completa
-                        </x-confirm-button>
-                    @endif
-                </div>
-                <div class="table-shell border-0 rounded-none">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Hora</th>
-                                <th>Cancha</th>
-                                <th>Local</th>
-                                <th class="text-center">Marcador</th>
-                                <th>Visitante</th>
-                                <th>Estado</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($games as $game)
-                                <tr>
-                                    <td>
-                                        {{ optional($game->scheduled_at)->format('H:i') ?? '—' }}
-                                        @if ($game->postpone_reason)
-                                            <div class="text-xs text-amber-700">{{ $game->postpone_reason }}</div>
-                                        @endif
-                                        @if ($game->isWalkover())
-                                            <div class="text-xs text-amber-700">{{ $game->walkoverReasonLabel() }}</div>
-                                        @endif
-                                    </td>
-                                    <td>{{ $game->locationLabel() }}</td>
-                                    <td>
-                                        {{ $game->homeTeam->name }}
-                                        @if ($tournament->isTeamDisqualified($game->home_team_id))
-                                            <span class="text-xs text-rose-600">DQ</span>
-                                        @endif
-                                    </td>
-                                    <td class="text-center font-semibold text-arena-navy">{{ $game->scoreline() }}</td>
-                                    <td>
-                                        {{ $game->awayTeam->name }}
-                                        @if ($tournament->isTeamDisqualified($game->away_team_id))
-                                            <span class="text-xs text-rose-600">DQ</span>
-                                        @endif
-                                    </td>
-                                    <td>{{ $game->statusLabel() }}</td>
-                                    <td><a href="{{ route('games.show', $game) }}" class="text-arena-navy text-sm font-medium">Abrir partido</a></td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </section>
+            <x-matchday-schedule
+                :games="$games"
+                :matchday="$matchday"
+                :tournament="$tournament"
+                :admin="true"
+            />
         @empty
             <div class="card p-8 text-slate-500">Generá el fixture cuando estén los equipos.</div>
         @endforelse

@@ -127,29 +127,116 @@ class _FixtureTab extends StatelessWidget {
   const _FixtureTab({required this.games});
   final List<dynamic> games;
 
+  String _timeLabel(Map<String, dynamic> g) {
+    final raw = g['scheduled_at']?.toString() ?? '';
+    if (raw.length >= 16) {
+      // 2026-08-31T09:00:00.000000Z or 2026-08-31 09:00:00
+      final cleaned = raw.replaceFirst('T', ' ');
+      return cleaned.substring(11, 16);
+    }
+    return 'Sin hora';
+  }
+
+  String _dateLabel(Map<String, dynamic> g) {
+    final raw = g['scheduled_at']?.toString() ?? '';
+    if (raw.length >= 10) return raw.substring(0, 10);
+    return '';
+  }
+
+  String _fieldLabel(Map<String, dynamic> g) {
+    final field = g['field_name']?.toString();
+    if (field != null && field.isNotEmpty) return field;
+    final venue = g['venue']?.toString();
+    if (venue != null && venue.isNotEmpty) return venue;
+    return 'Sin cancha';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (games.isEmpty) return const Center(child: Text('Sin fixture.'));
-    return ListView.builder(
+
+    final sorted = [...games.cast<Map<String, dynamic>>()]
+      ..sort((a, b) {
+        final md = (a['matchday'] as num? ?? 0).compareTo(b['matchday'] as num? ?? 0);
+        if (md != 0) return md;
+        return (a['scheduled_at']?.toString() ?? '').compareTo(b['scheduled_at']?.toString() ?? '');
+      });
+
+    final byMatchday = <int, List<Map<String, dynamic>>>{};
+    for (final g in sorted) {
+      final md = (g['matchday'] as num?)?.toInt() ?? 0;
+      byMatchday.putIfAbsent(md, () => []).add(g);
+    }
+
+    return ListView(
       padding: const EdgeInsets.all(12),
-      itemCount: games.length,
-      itemBuilder: (context, i) {
-        final g = games[i] as Map<String, dynamic>;
-        final home = g['home_team'] ?? g['homeTeam'];
-        final away = g['away_team'] ?? g['awayTeam'];
-        final homeName = home is Map ? home['name'] : 'Local';
-        final awayName = away is Map ? away['name'] : 'Visita';
-        final score = g['status'] == 'finished'
-            ? '${g['home_score'] ?? 0} – ${g['away_score'] ?? 0}'
-            : 'Pendiente';
+      children: byMatchday.entries.map((entry) {
+        final matchdayGames = entry.value;
+        final slots = <String, List<Map<String, dynamic>>>{};
+        for (final g in matchdayGames) {
+          slots.putIfAbsent(_timeLabel(g), () => []).add(g);
+        }
+        final times = slots.keys.where((t) => t != 'Sin hora').toList();
+
         return Card(
-          child: ListTile(
-            title: Text('$homeName vs $awayName'),
-            subtitle: Text('Fecha ${g['matchday'] ?? '—'} · ${g['scheduled_at'] ?? ''}'),
-            trailing: Text(score, style: const TextStyle(fontWeight: FontWeight.w700)),
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Fecha ${entry.key}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text(
+                  [
+                    if (_dateLabel(matchdayGames.first).isNotEmpty) _dateLabel(matchdayGames.first),
+                    '${matchdayGames.length} partidos',
+                    if (times.length > 1) '${times.length} turnos: ${times.join(' · ')}',
+                    if (times.length == 1) 'turno ${times.first}',
+                  ].join(' · '),
+                  style: TextStyle(color: Colors.black.withOpacity(0.55), fontSize: 13),
+                ),
+                const SizedBox(height: 10),
+                ...slots.entries.map((slot) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(top: 6, bottom: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF4F7F2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          slot.key == 'Sin hora' ? 'Sin horario' : 'Turno ${slot.key}',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      ...slot.value.map((g) {
+                        final home = g['home_team'] ?? g['homeTeam'];
+                        final away = g['away_team'] ?? g['awayTeam'];
+                        final homeName = home is Map ? home['name'] : 'Local';
+                        final awayName = away is Map ? away['name'] : 'Visita';
+                        final score = g['status'] == 'finished'
+                            ? '${g['home_score'] ?? 0} – ${g['away_score'] ?? 0}'
+                            : 'Pendiente';
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('$homeName vs $awayName'),
+                          subtitle: Text('${_timeLabel(g)} · ${_fieldLabel(g)}'),
+                          trailing: Text(score, style: const TextStyle(fontWeight: FontWeight.w700)),
+                        );
+                      }),
+                    ],
+                  );
+                }),
+              ],
+            ),
           ),
         );
-      },
+      }).toList(),
     );
   }
 }

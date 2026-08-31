@@ -140,12 +140,21 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                       final map = g as Map<String, dynamic>;
                       final home = map['home_team'] ?? map['homeTeam'];
                       final away = map['away_team'] ?? map['awayTeam'];
+                      final field = map['field_name']?.toString();
+                      final venue = map['venue']?.toString();
+                      final place = (field != null && field.isNotEmpty)
+                          ? field
+                          : ((venue != null && venue.isNotEmpty) ? venue : 'Sin cancha');
+                      final when = map['scheduled_at']?.toString() ?? '';
+                      final time = when.length >= 16
+                          ? when.replaceFirst('T', ' ').substring(11, 16)
+                          : when;
                       return Card(
                         child: ListTile(
                           title: Text(
                             '${(home is Map ? home['name'] : null) ?? 'Local'} vs ${(away is Map ? away['name'] : null) ?? 'Visita'}',
                           ),
-                          subtitle: Text('Fecha ${map['matchday'] ?? '—'} · ${map['scheduled_at'] ?? ''}'),
+                          subtitle: Text('Fecha ${map['matchday'] ?? '—'} · $time · $place'),
                         ),
                       );
                     }),
