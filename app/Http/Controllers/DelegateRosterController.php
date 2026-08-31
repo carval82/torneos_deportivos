@@ -41,7 +41,7 @@ class DelegateRosterController extends Controller
 
         $tournament = $request->filled('tournament')
             ? Tournament::findOrFail($request->integer('tournament'))
-            : $team->tournaments()->latest()->first();
+            : $team->tournaments()->orderByDesc('tournaments.id')->first();
 
         $team->load('players');
 

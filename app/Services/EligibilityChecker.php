@@ -46,10 +46,14 @@ class EligibilityChecker
             ];
         }
 
-        $exception = EligibilityException::query()
-            ->where('tournament_id', $tournament->id)
-            ->where('player_id', $player->id)
-            ->first();
+        try {
+            $exception = EligibilityException::query()
+                ->where('tournament_id', $tournament->id)
+                ->where('player_id', $player->id)
+                ->first();
+        } catch (\Throwable) {
+            $exception = null;
+        }
 
         $minAge = $tournament->effectiveMinAge();
         $maxAge = $tournament->effectiveMaxAge();

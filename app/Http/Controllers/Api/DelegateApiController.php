@@ -43,24 +43,51 @@ class DelegateApiController extends Controller
 
         $tournament = $request->filled('tournament_id')
             ? Tournament::findOrFail($request->integer('tournament_id'))
-            : $team->tournaments()->latest()->first();
+            : $team->tournaments()->orderByDesc('tournaments.id')->first();
 
         $team->load(['players' => fn ($q) => $q->orderBy('last_name')->orderBy('first_name')]);
         $eligibility = [];
         if ($tournament) {
             foreach ($team->players as $player) {
-                $check = $this->eligibility->check($player, $tournament);
+                try {
+                    $check = $this->eligibility->check($player, $tournament);
+                } catch (\Throwable) {
+                    $check = [
+                        'eligible' => true,
+                        'age' => $player->age(),
+                        'reason' => null,
+                        'warnings' => [],
+                        'exception' => null,
+                    ];
+                }
                 $eligibility[(string) $player->id] = [
                     'eligible' => $check['eligible'],
                     'age' => $check['age'],
                     'reason' => $check['reason'],
-                    'warnings' => $check['warnings'],
-                    'exception_status' => $check['exception']?->status,
+                    'warnings' => $check['warnings'] ?? [],
+                    'exception_status' => is_object($check['exception'] ?? null)
+                        ? $check['exception']->status
+                        : null,
                 ];
             }
         }
 
         $players = $team->players->map(fn (Player $player) => $this->playerPayload($player))->values();
+        $user = $request->user();
+        $isCommittee = $user->isAdmin()
+            || ($tournament && (int) $tournament->user_id === (int) $user->id);
+
+        if (! $isCommittee) {
+            try {
+                $isCommittee = (bool) $user->teams()
+                    ->where('teams.id', $team->id)
+                    ->first()
+                    ?->pivot
+                    ?->is_disciplinary_committee;
+            } catch (\Throwable) {
+                $isCommittee = false;
+            }
+        }
 
         return response()->json([
             'team' => [
@@ -78,14 +105,12 @@ class DelegateApiController extends Controller
                 'public_slug' => $tournament->public_slug,
                 'status' => $tournament->status,
             ] : null,
-            'tournaments' => $team->tournaments()->get(['tournaments.id', 'name', 'public_slug', 'status']),
+            'tournaments' => $team->tournaments()
+                ->orderBy('tournaments.name')
+                ->get(['tournaments.id', 'tournaments.name', 'tournaments.public_slug', 'tournaments.status']),
             'roster_status' => $tournament ? $this->rosterLock->status($tournament) : null,
             'eligibility' => (object) $eligibility,
-            'is_disciplinary_committee' => (bool) optional(
-                $request->user()->teams()->where('teams.id', $team->id)->first()
-            )->pivot?->is_disciplinary_committee
-                || $request->user()->isAdmin()
-                || ($tournament && (int) $tournament->user_id === (int) $request->user()->id),
+            'is_disciplinary_committee' => $isCommittee,
         ]);
     }
 

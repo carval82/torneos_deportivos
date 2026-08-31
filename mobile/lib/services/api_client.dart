@@ -101,6 +101,9 @@ class ApiClient {
         }
       }
     }
+    if (res.statusCode >= 500) {
+      message = 'El servidor no respondió bien. Probá de nuevo en unos segundos.';
+    }
     throw ApiException(message, statusCode: res.statusCode);
   }
 }

@@ -56,7 +56,7 @@ class PlayerController extends Controller
         $player->load(['team', 'events.game.tournament', 'attendances.game']);
         $tournament = $request->filled('tournament_id')
             ? Tournament::with('ageCategory')->find($request->integer('tournament_id'))
-            : $player->team?->tournaments()->with('ageCategory')->latest()->first();
+            : $player->team?->tournaments()->with('ageCategory')->orderByDesc('tournaments.id')->first();
 
         return view('players.show', [
             'player' => $player,
