@@ -11,6 +11,7 @@ use App\Models\Team;
 use App\Models\Tournament;
 use App\Services\DisciplineService;
 use App\Services\EligibilityChecker;
+use App\Services\MatchSheetService;
 use App\Services\PlayerMediaService;
 use App\Services\RosterLockService;
 use Illuminate\Http\JsonResponse;
@@ -23,6 +24,7 @@ class DelegateApiController extends Controller
         private readonly PlayerMediaService $media,
         private readonly EligibilityChecker $eligibility,
         private readonly DisciplineService $discipline,
+        private readonly MatchSheetService $sheets,
     ) {}
 
     public function teams(Request $request): JsonResponse
@@ -43,12 +45,12 @@ class DelegateApiController extends Controller
             ? Tournament::findOrFail($request->integer('tournament_id'))
             : $team->tournaments()->latest()->first();
 
-        $team->load('players');
+        $team->load(['players' => fn ($q) => $q->orderBy('last_name')->orderBy('first_name')]);
         $eligibility = [];
         if ($tournament) {
             foreach ($team->players as $player) {
                 $check = $this->eligibility->check($player, $tournament);
-                $eligibility[$player->id] = [
+                $eligibility[(string) $player->id] = [
                     'eligible' => $check['eligible'],
                     'age' => $check['age'],
                     'reason' => $check['reason'],
@@ -58,12 +60,27 @@ class DelegateApiController extends Controller
             }
         }
 
+        $players = $team->players->map(fn (Player $player) => $this->playerPayload($player))->values();
+
         return response()->json([
-            'team' => $team,
-            'tournament' => $tournament,
+            'team' => [
+                'id' => $team->id,
+                'name' => $team->name,
+                'short_name' => $team->short_name,
+                'city' => $team->city,
+                'players' => $players,
+                'players_count' => $players->count(),
+            ],
+            'players' => $players,
+            'tournament' => $tournament ? [
+                'id' => $tournament->id,
+                'name' => $tournament->name,
+                'public_slug' => $tournament->public_slug,
+                'status' => $tournament->status,
+            ] : null,
             'tournaments' => $team->tournaments()->get(['tournaments.id', 'name', 'public_slug', 'status']),
             'roster_status' => $tournament ? $this->rosterLock->status($tournament) : null,
-            'eligibility' => $eligibility,
+            'eligibility' => (object) $eligibility,
             'is_disciplinary_committee' => (bool) optional(
                 $request->user()->teams()->where('teams.id', $team->id)->first()
             )->pivot?->is_disciplinary_committee
@@ -75,21 +92,9 @@ class DelegateApiController extends Controller
     public function storePlayer(Request $request, Team $team): JsonResponse
     {
         $this->authorize('manageRoster', $team);
+        $this->normalizePlayerInput($request);
 
-        $data = $request->validate([
-            'tournament_id' => ['nullable', 'exists:tournaments,id'],
-            'first_name' => ['required', 'string', 'max:80'],
-            'last_name' => ['required', 'string', 'max:80'],
-            'document_type' => ['required', 'in:DNI,Pasaporte,Cédula'],
-            'document_number' => ['required', 'string', 'max:40'],
-            'birthdate' => ['required', 'date'],
-            'gender' => ['required', 'in:masculino,femenino,mixto'],
-            'position' => ['nullable', 'string', 'max:60'],
-            'jersey_number' => ['nullable', 'integer', 'min:0', 'max:99'],
-            'phone' => ['nullable', 'string', 'max:40'],
-            'photo' => ['nullable', 'image', 'max:8192'],
-            'document_photo' => ['nullable', 'image', 'max:8192'],
-        ]);
+        $data = $request->validate($this->playerRules());
 
         if (! empty($data['tournament_id'])) {
             $this->rosterLock->assertOpen(Tournament::findOrFail($data['tournament_id']));
@@ -102,11 +107,10 @@ class DelegateApiController extends Controller
             return response()->json(['message' => 'Ya existe un jugador con ese documento.'], 422);
         }
 
-        $tournamentId = $data['tournament_id'] ?? null;
         $player = Player::create([
             ...collect($data)->except(['tournament_id', 'photo', 'document_photo'])->all(),
             'team_id' => $team->id,
-            'nationality' => 'Argentina',
+            'nationality' => $data['nationality'] ?? 'Colombia',
         ]);
 
         if ($request->hasFile('photo')) {
@@ -116,46 +120,37 @@ class DelegateApiController extends Controller
             $this->media->storeDocumentPhoto($player, $request->file('document_photo'));
         }
 
-        if ($tournamentId) {
-            Roster::updateOrCreate(
-                ['tournament_id' => $tournamentId, 'player_id' => $player->id],
-                [
-                    'team_id' => $team->id,
-                    'jersey_number' => $player->jersey_number,
-                    'position' => $player->position,
-                    'is_active' => true,
-                ]
-            );
-        }
+        $player = $player->fresh();
+        $this->syncPlayerRosters($team, $player, $data['tournament_id'] ?? null);
 
-        return response()->json(['player' => $player->fresh()], 201);
+        return response()->json(['player' => $this->playerPayload($player)], 201);
     }
 
     public function updatePlayer(Request $request, Team $team, Player $player): JsonResponse
     {
         $this->authorize('manageRoster', $team);
         abort_unless((int) $player->team_id === (int) $team->id, 403);
+        $this->normalizePlayerInput($request);
 
-        $data = $request->validate([
-            'tournament_id' => ['nullable', 'exists:tournaments,id'],
-            'first_name' => ['sometimes', 'string', 'max:80'],
-            'last_name' => ['sometimes', 'string', 'max:80'],
-            'document_type' => ['sometimes', 'in:DNI,Pasaporte,Cédula'],
-            'document_number' => ['sometimes', 'string', 'max:40'],
-            'birthdate' => ['sometimes', 'date'],
-            'gender' => ['sometimes', 'in:masculino,femenino,mixto'],
-            'position' => ['nullable', 'string', 'max:60'],
-            'jersey_number' => ['nullable', 'integer', 'min:0', 'max:99'],
-            'phone' => ['nullable', 'string', 'max:40'],
-        ]);
+        $data = $request->validate($this->playerRules(updating: true));
 
         if (! empty($data['tournament_id'])) {
             $this->rosterLock->assertOpen(Tournament::findOrFail($data['tournament_id']));
         }
 
-        $player->update(collect($data)->except(['tournament_id'])->all());
+        $player->update(collect($data)->except(['tournament_id', 'photo', 'document_photo'])->all());
 
-        return response()->json(['player' => $player->fresh()]);
+        if ($request->hasFile('photo')) {
+            $this->media->storePhoto($player, $request->file('photo'));
+        }
+        if ($request->hasFile('document_photo')) {
+            $this->media->storeDocumentPhoto($player, $request->file('document_photo'));
+        }
+
+        $player = $player->fresh();
+        $this->syncPlayerRosters($team, $player, $data['tournament_id'] ?? null);
+
+        return response()->json(['player' => $this->playerPayload($player)]);
     }
 
     public function uploadPhotos(Request $request, Team $team, Player $player): JsonResponse
@@ -183,7 +178,7 @@ class DelegateApiController extends Controller
         $player = $player->fresh();
 
         return response()->json([
-            'player' => $player,
+            'player' => $this->playerPayload($player),
             'photo_url' => $player->photoUrl(),
             'document_photo_url' => $player->documentPhotoUrl(),
         ]);
@@ -260,5 +255,100 @@ class DelegateApiController extends Controller
                 ->latest()
                 ->get(),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function playerPayload(Player $player): array
+    {
+        return [
+            'id' => $player->id,
+            'team_id' => $player->team_id,
+            'first_name' => $player->first_name,
+            'last_name' => $player->last_name,
+            'display_name' => $player->displayName(),
+            'document_type' => $player->document_type,
+            'document_number' => $player->document_number,
+            'birthdate' => $player->birthdate?->format('Y-m-d'),
+            'age' => $player->age(),
+            'gender' => $player->gender,
+            'nationality' => $player->nationality,
+            'position' => $player->position,
+            'jersey_number' => $player->jersey_number,
+            'phone' => $player->phone,
+            'email' => $player->email,
+            'photo_url' => $player->photoUrl(),
+            'document_photo_url' => $player->documentPhotoUrl(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function playerRules(bool $updating = false): array
+    {
+        $req = $updating ? 'sometimes' : 'required';
+
+        return [
+            'tournament_id' => ['nullable', 'exists:tournaments,id'],
+            'first_name' => [$req, 'string', 'max:80'],
+            'last_name' => [$req, 'string', 'max:80'],
+            'document_type' => [$req, 'in:DNI,Pasaporte,Cédula,Cedula'],
+            'document_number' => [$req, 'string', 'max:40'],
+            'birthdate' => [$req, 'date'],
+            'gender' => [$req, 'in:masculino,femenino,mixto'],
+            'nationality' => ['nullable', 'string', 'max:80'],
+            'position' => ['nullable', 'string', 'max:60'],
+            'jersey_number' => ['nullable', 'integer', 'min:0', 'max:99'],
+            'phone' => ['nullable', 'string', 'max:40'],
+            'email' => ['nullable', 'email', 'max:150'],
+            'photo' => ['nullable', 'image', 'max:8192'],
+            'document_photo' => ['nullable', 'image', 'max:8192'],
+        ];
+    }
+
+    private function normalizePlayerInput(Request $request): void
+    {
+        $merge = [];
+
+        foreach (['position', 'phone', 'email', 'nationality', 'jersey_number', 'tournament_id'] as $key) {
+            if ($request->input($key) === '') {
+                $merge[$key] = null;
+            }
+        }
+
+        $type = $request->input('document_type');
+        if (is_string($type)) {
+            $normalized = str_ireplace(['é', 'É'], 'e', $type);
+            if (strcasecmp(trim($normalized), 'Cedula') === 0) {
+                $merge['document_type'] = 'Cédula';
+            }
+        }
+
+        if ($merge !== []) {
+            $request->merge($merge);
+        }
+    }
+
+    private function syncPlayerRosters(Team $team, Player $player, mixed $tournamentId = null): void
+    {
+        if ($tournamentId) {
+            Roster::updateOrCreate(
+                ['tournament_id' => (int) $tournamentId, 'player_id' => $player->id],
+                [
+                    'team_id' => $team->id,
+                    'jersey_number' => $player->jersey_number,
+                    'position' => $player->position,
+                    'is_active' => true,
+                ]
+            );
+
+            return;
+        }
+
+        foreach ($team->tournaments as $tournament) {
+            $this->sheets->enrollTeamRoster($tournament->id, $team->id);
+        }
     }
 }

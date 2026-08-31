@@ -87,8 +87,8 @@ class _TeamsScreenState extends State<TeamsScreen> {
                         title: Text(t['name']?.toString() ?? 'Equipo'),
                         subtitle: Text('${t['players_count'] ?? t['players_count'] ?? 0} jugadores'),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          Navigator.of(context).push(
+                        onTap: () async {
+                          await Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => RosterScreen(
                                 teamId: (t['id'] as num).toInt(),
@@ -96,6 +96,7 @@ class _TeamsScreenState extends State<TeamsScreen> {
                               ),
                             ),
                           );
+                          if (mounted) _load();
                         },
                       ),
                     );
