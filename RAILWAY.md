@@ -18,7 +18,10 @@ Repo: https://github.com/carval82/torneos_deportivos.git
 | `APP_KEY` | generar con `php artisan key:generate --show` (local) |
 | `APP_URL` | URL pública de Railway (`https://....up.railway.app`) |
 | `DB_CONNECTION` | `pgsql` |
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (referencia Railway) |
+| `DB_URL` | `${{Postgres-XXXX.DATABASE_URL}}` (referencia Railway; Laravel lee `DB_URL`) |
+| `DATABASE_URL` | misma referencia (opcional, backup) |
+
+**Importante:** no dejes `DB_HOST=127.0.0.1` ni `DB_USERNAME=root`. Eso fuerza localhost y rompe el deploy.
 | `LOG_CHANNEL` | `stderr` |
 | `LOG_LEVEL` | `error` |
 | `SESSION_DRIVER` | `database` |
