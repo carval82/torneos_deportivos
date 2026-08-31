@@ -19,13 +19,9 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $admin = User::query()->create([
-            'name' => 'Pablo Capacho',
-            'email' => 'pcapacho24@gmail.com',
-            'password' => Hash::make('anaval33'),
-            'role' => 'admin',
-            'email_verified_at' => now(),
-        ]);
+        $this->call(MasterUserSeeder::class);
+
+        $admin = User::query()->where('email', 'pcapacho24@gmail.com')->firstOrFail();
 
         $sports = collect([
             ['name' => 'Fútbol', 'slug' => 'futbol', 'scoring_unit' => 'goles', 'is_team_sport' => true, 'icon' => '⚽'],
