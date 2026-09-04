@@ -35,7 +35,7 @@ class PublicTournamentController extends Controller
     public function fixture(string $slug): View
     {
         $tournament = $this->findPublic($slug);
-        $tournament->load(['games.homeTeam', 'games.awayTeam', 'sport']);
+        $tournament->load(['games.homeTeam', 'games.awayTeam', 'games.referees', 'sport']);
 
         return view('public.tournament', [
             'tournament' => $tournament,

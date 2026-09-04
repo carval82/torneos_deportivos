@@ -57,7 +57,9 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.expectedRoles.contains('delegate') ? 'Delegado' : 'Organizador';
+    final title = widget.expectedRoles.contains('delegate')
+        ? 'Delegado'
+        : (widget.expectedRoles.contains('referee') ? 'Árbitro' : 'Organizador');
     return Scaffold(
       appBar: AppBar(title: Text(title)),
       body: ListView(

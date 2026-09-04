@@ -25,6 +25,10 @@ class DashboardController extends Controller
             return redirect()->route('delegate.index');
         }
 
+        if (($user->isReferee() || $user->isRefereeCoordinator()) && ! $user->isOrganizer()) {
+            return redirect()->route('referee.desk');
+        }
+
         $tournamentQuery = Tournament::query();
         $teamQuery = Team::query();
         $playerQuery = Player::query();

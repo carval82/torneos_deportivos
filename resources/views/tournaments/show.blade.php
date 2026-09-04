@@ -131,7 +131,8 @@
                     <div class="flex justify-between gap-3"><dt>Complejo</dt><dd>{{ $tournament->complex_name ?: ($tournament->venue ?: '—') }}</dd></div>
                     <div class="flex justify-between gap-3"><dt>Canchas</dt><dd>{{ count($tournament->fieldList()) }} · {{ $tournament->fieldSurfaceLabel() }}</dd></div>
                     <div class="flex justify-between gap-3"><dt>Cada</dt><dd>{{ $tournament->days_between_rounds ?: 7 }} días</dd></div>
-                    <div class="flex justify-between gap-3"><dt>W.O.</dt><dd>{{ $competitionRules['walkover_goals_for'] }}-{{ $competitionRules['walkover_goals_against'] }} · DQ a {{ $competitionRules['max_no_shows_before_dq'] }}</dd></div>
+                    <div class="flex justify-between gap-3"><dt>Árbitros</dt><dd>{{ ($competitionRules['referee_crew'] ?? 'single') === 'trio' ? 'Terna (3)' : 'Uno por partido' }}</dd></div>
+                    <div class="flex justify-between gap-3"><dt>Coord. arbitral</dt><dd>{{ $tournament->refereeCoordinator?->name ?: 'Sin asignar' }}</dd></div>
                     <div class="flex justify-between gap-3"><dt>Edad</dt><dd>{{ $tournament->ageLabel() }}</dd></div>
                     <div class="flex justify-between gap-3"><dt>Género</dt><dd>{{ $tournament->genderLabel() }}</dd></div>
                 </dl>

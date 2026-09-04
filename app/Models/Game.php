@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Game extends Model
@@ -75,6 +76,34 @@ class Game extends Model
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);
+    }
+
+    public function referees(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'game_referees')
+            ->withPivot('duty')
+            ->withTimestamps();
+    }
+
+    public function refereeAssignments(): HasMany
+    {
+        return $this->hasMany(GameReferee::class);
+    }
+
+    public function refereeOnDuty(string $duty): ?User
+    {
+        return $this->referees->firstWhere('pivot.duty', $duty);
+    }
+
+    public function refereesLabel(): string
+    {
+        if ($this->referees->isEmpty()) {
+            return 'Sin árbitro';
+        }
+
+        return $this->referees
+            ->map(fn (User $user) => $user->name)
+            ->implode(' · ');
     }
 
     public function isWalkover(): bool

@@ -234,6 +234,44 @@
     </section>
 
     <section>
+        <h2 class="text-lg font-semibold mb-1">Cuerpo arbitral</h2>
+        <p class="text-sm text-slate-500 mb-4">
+            Definí si cada partido se cubre con un árbitro o con terna (central y dos asistentes).
+            El coordinador arbitral asigna a las personas en cada encuentro.
+        </p>
+        @php
+            $officials = $officials ?? collect();
+            $coordinators = $officials->where('role', \App\Models\User::ROLE_REFEREE_COORDINATOR);
+        @endphp
+        <div class="grid gap-5 md:grid-cols-2">
+            <div>
+                <label class="text-sm text-slate-600">Árbitros por partido</label>
+                <select name="referee_crew" class="field">
+                    <option value="single" @selected(old('referee_crew', $cr['referee_crew'] ?? 'single') === 'single')>Un árbitro</option>
+                    <option value="trio" @selected(old('referee_crew', $cr['referee_crew'] ?? '') === 'trio')>Terna (3)</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-sm text-slate-600">Coordinador arbitral</label>
+                <select name="referee_coordinator_id" class="field">
+                    <option value="">Sin coordinador todavía</option>
+                    @foreach ($coordinators as $official)
+                        <option value="{{ $official->id }}" @selected((int) old('referee_coordinator_id', $tournament->referee_coordinator_id ?? 0) === (int) $official->id)>
+                            {{ $official->name }}
+                        </option>
+                    @endforeach
+                </select>
+                @error('referee_coordinator_id') <p class="text-sm text-rose-600 mt-1">{{ $message }}</p> @enderror
+                <p class="text-xs text-slate-500 mt-1">
+                    Si no aparece nadie,
+                    <a href="{{ route('organizer.referees.index') }}" class="font-semibold text-arena-navy underline">creá un coordinador</a>
+                    y volvé a editar el torneo.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section>
         <h2 class="text-lg font-semibold mb-1">Reglamento para los jugadores</h2>
         <p class="text-sm text-slate-500 mb-4">Esto se publica para que nadie diga que no conocía las normas.</p>
         <div class="grid gap-5">

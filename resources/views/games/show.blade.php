@@ -6,9 +6,53 @@
         {{ $game->locationLabel() }} · {{ $game->statusLabel() }}
     </x-slot>
 
-    <div class="mb-4">
-        <a href="{{ route('tournaments.show', ['tournament' => $game->tournament, 'tab' => 'fixture']) }}" class="text-sm text-arena-navy font-medium">← Volver al fixture</a>
+    <div class="mb-4 flex flex-wrap gap-3">
+        @if (auth()->user()?->isOrganizer() || auth()->user()?->isAdmin())
+            <a href="{{ route('tournaments.show', ['tournament' => $game->tournament, 'tab' => 'fixture']) }}" class="text-sm text-arena-navy font-medium">← Volver al fixture</a>
+        @endif
+        @if (auth()->user()?->isMatchOfficial() || auth()->user()?->isOrganizer())
+            <a href="{{ route('referee.desk') }}" class="text-sm text-arena-navy font-medium">Mesa arbitral</a>
+        @endif
     </div>
+
+    @if ($canAssign ?? false)
+        <section class="card p-6 mb-6">
+            <h2 class="font-semibold mb-1">Cuerpo arbitral de este partido</h2>
+            <p class="text-sm text-slate-500 mb-4">
+                Reglamento:
+                {{ ($competitionRules['referee_crew'] ?? 'single') === 'trio' ? 'terna (central y dos asistentes)' : 'un árbitro' }}.
+                El árbitro asignado puede cargar el marcador en vivo con su usuario.
+            </p>
+            <form method="POST" action="{{ route('games.referees.assign', $game) }}" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                @csrf
+                @foreach ($duties as $duty => $label)
+                    <div>
+                        <label class="text-xs text-slate-500">{{ $label }}</label>
+                        <select name="{{ $duty }}" class="field">
+                            <option value="">Sin asignar</option>
+                            @foreach ($officials as $official)
+                                <option value="{{ $official->id }}" @selected((int) optional($game->refereeOnDuty($duty))->id === (int) $official->id)>
+                                    {{ $official->name }}
+                                    @if ($official->isRefereeCoordinator()) (coord.) @endif
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endforeach
+                <div class="flex items-end">
+                    <button class="btn-primary w-full">Guardar asignación</button>
+                </div>
+            </form>
+            @if ($officials->isEmpty())
+                <p class="text-sm text-amber-800 mt-3">
+                    Todavía no hay árbitros.
+                    <a href="{{ route('organizer.referees.index') }}" class="font-semibold underline">Crearlos acá</a>.
+                </p>
+            @endif
+        </section>
+    @else
+        <p class="mb-6 text-sm text-slate-500">Árbitros: <strong class="text-arena-navy">{{ $game->refereesLabel() }}</strong></p>
+    @endif
 
     {{-- Marcador --}}
     <section class="card p-6 mb-6">
@@ -26,6 +70,7 @@
             </div>
         </div>
 
+        @if ($canSheet ?? false)
         <form method="POST" action="{{ route('games.score', $game) }}" class="grid sm:grid-cols-4 gap-3">
             @csrf
             @method('PATCH')
@@ -49,6 +94,12 @@
                 <button class="btn-primary w-full">Guardar resultado</button>
             </div>
         </form>
+        @else
+            <p class="text-sm text-slate-500">
+                Si no hay árbitro asignado, el organizador o el master pueden cargar el resultado desde acá cuando les corresponda.
+                Vos ves el marcador en vivo.
+            </p>
+        @endif
     </section>
 
     <div class="grid gap-6 xl:grid-cols-2 mb-6">
@@ -56,6 +107,7 @@
         <section class="card p-6">
             <h2 class="font-semibold mb-1">1. Goles</h2>
             <p class="text-sm text-slate-500 mb-4">Si cargás goles, el marcador se actualiza solo.</p>
+            @if ($canSheet ?? false)
             <form method="POST" action="{{ route('games.events.store', $game) }}" class="grid sm:grid-cols-2 gap-3">
                 @csrf
                 <input type="hidden" name="type" value="goal">
@@ -74,15 +126,18 @@
                 <input type="number" name="minute" class="field" placeholder="Minuto" min="1" max="130">
                 <button class="btn-primary">Sumar gol</button>
             </form>
+            @endif
             <div class="mt-4 space-y-2">
                 @forelse ($goals as $event)
                     <div class="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2 text-sm">
                         <span>{{ $event->minute ? $event->minute."'" : '—' }} · {{ $event->label() }} · {{ $event->player?->displayName() ?? 's/n' }}</span>
+                        @if ($canSheet ?? false)
                         <form method="POST" action="{{ route('games.events.destroy', [$game, $event]) }}">
                             @csrf
                             @method('DELETE')
                             <button class="text-rose-600 text-xs">Quitar</button>
                         </form>
+                        @endif
                     </div>
                 @empty
                     <p class="text-sm text-slate-500">Sin goles cargados.</p>
@@ -98,6 +153,7 @@
                 {{ $game->tournament->double_yellow_ban_matches ?: 1 }} fecha(s).
                 Roja = {{ $game->tournament->red_ban_matches ?: 1 }} fecha(s).
             </p>
+            @if ($canSheet ?? false)
             <form method="POST" action="{{ route('games.events.store', $game) }}" class="grid sm:grid-cols-2 gap-3">
                 @csrf
                 <select name="team_id" class="field" required>
@@ -123,6 +179,7 @@
                 <input name="note" class="field sm:col-span-2" placeholder="Motivo (opcional)">
                 <button class="btn-primary sm:col-span-2">Cargar tarjeta</button>
             </form>
+            @endif
             <div class="mt-4 space-y-2">
                 @forelse ($cards as $event)
                     <div class="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2 text-sm">
@@ -134,11 +191,13 @@
                                 · <span class="text-slate-500">{{ $event->note }}</span>
                             @endif
                         </span>
+                        @if ($canSheet ?? false)
                         <form method="POST" action="{{ route('games.events.destroy', [$game, $event]) }}">
                             @csrf
                             @method('DELETE')
                             <button class="text-rose-600 text-xs">Quitar</button>
                         </form>
+                        @endif
                     </div>
                 @empty
                     <p class="text-sm text-slate-500">Sin tarjetas.</p>
@@ -147,7 +206,7 @@
         </section>
     </div>
 
-    @if ($game->status !== 'finished')
+    @if (($canOrganize ?? false) && $game->status !== 'finished')
         <section class="card p-6 mb-6 border-amber-200">
             <h2 class="font-semibold mb-1">3. Walkover (no se presentó)</h2>
             <p class="text-sm text-slate-500 mb-4">
@@ -199,6 +258,7 @@
     @endif
 
     <div class="grid gap-6 xl:grid-cols-3 mb-6">
+        @if ($canOrganize ?? false)
         {{-- Reprogramar partido individual --}}
         <section class="card p-6 xl:col-span-1">
             <h2 class="font-semibold mb-1">4. Mover este partido</h2>
@@ -236,7 +296,9 @@
                 <button class="btn-primary w-full">Guardar cambio</button>
             </form>
         </section>
+        @endif
 
+        @if ($canSheet ?? false)
         <section class="card p-6 xl:col-span-2">
             <h2 class="font-semibold mb-1">5. Asistencia</h2>
             <p class="text-sm text-slate-500 mb-4">Marcá titulares, suplentes o ausentes.</p>
@@ -278,5 +340,6 @@
                 <button class="btn-primary mt-6">Guardar asistencia</button>
             </form>
         </section>
+        @endif
     </div>
 </x-app-layout>

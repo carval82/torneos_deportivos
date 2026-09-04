@@ -5,6 +5,7 @@ import '../state/app_state.dart';
 import 'delegate/delegate_shell.dart';
 import 'organizer/tournaments_screen.dart';
 import 'player/player_home_screen.dart';
+import 'referee/referee_desk_screen.dart';
 import 'welcome_screen.dart';
 
 class HomeGate extends StatelessWidget {
@@ -32,6 +33,9 @@ class HomeGate extends StatelessWidget {
       case 'admin':
       case 'organizer':
         return const TournamentsScreen(mode: TournamentListMode.organizer);
+      case 'referee':
+      case 'referee_coordinator':
+        return const RefereeDeskScreen();
       default:
         return const WelcomeScreen();
     }

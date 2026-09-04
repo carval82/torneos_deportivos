@@ -6,10 +6,12 @@ use App\Models\Game;
 use App\Models\GameEvent;
 use App\Models\Roster;
 use App\Models\Team;
+use App\Models\User;
 use App\Services\CompetitionRulesService;
 use App\Services\DisciplineService;
 use App\Services\MatchSheetService;
 use App\Services\ProbabilityCalculator;
+use App\Services\RefereeService;
 use App\Services\WalkoverService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,10 +25,13 @@ class GameController extends Controller
         private readonly DisciplineService $discipline,
         private readonly WalkoverService $walkovers,
         private readonly CompetitionRulesService $competitionRules,
+        private readonly RefereeService $referees,
     ) {}
 
     public function show(Game $game): View
     {
+        $this->authorize('view', $game);
+
         $game->load([
             'tournament.sport',
             'tournament.teams',
@@ -36,8 +41,10 @@ class GameController extends Controller
             'events.player',
             'events.team',
             'attendances.player',
+            'referees',
         ]);
 
+        $user = request()->user();
         $rosters = Roster::with('player')
             ->where('tournament_id', $game->tournament_id)
             ->whereIn('team_id', [$game->home_team_id, $game->away_team_id])
@@ -59,11 +66,20 @@ class GameController extends Controller
             'cards' => $cards,
             'suspensions' => $this->discipline->activeForPlayers($game->tournament_id, $playerIds),
             'competitionRules' => $this->competitionRules->for($game->tournament),
+            'canSheet' => $user?->canManageMatchSheet($game) ?? false,
+            'canAssign' => $user?->canAssignReferees($game->tournament) ?? false,
+            'canOrganize' => $user?->can('organize', $game) ?? false,
+            'officials' => User::query()
+                ->whereIn('role', [User::ROLE_REFEREE, User::ROLE_REFEREE_COORDINATOR])
+                ->orderBy('name')
+                ->get(),
+            'duties' => $this->referees->duties($game->tournament),
         ]);
     }
 
     public function walkover(Request $request, Game $game): RedirectResponse
     {
+        $this->authorize('organize', $game);
         $data = $request->validate([
             'absent_team_id' => ['required', 'in:'.$game->home_team_id.','.$game->away_team_id],
             'note' => ['nullable', 'string', 'max:255'],
@@ -86,6 +102,7 @@ class GameController extends Controller
 
     public function updateScore(Request $request, Game $game): RedirectResponse
     {
+        $this->authorize('updateSheet', $game);
         $data = $request->validate([
             'home_score' => ['required', 'integer', 'min:0', 'max:99'],
             'away_score' => ['required', 'integer', 'min:0', 'max:99'],
@@ -104,6 +121,7 @@ class GameController extends Controller
 
     public function storeEvent(Request $request, Game $game): RedirectResponse
     {
+        $this->authorize('updateSheet', $game);
         $data = $request->validate([
             'team_id' => ['required', 'in:'.$game->home_team_id.','.$game->away_team_id],
             'player_id' => ['nullable', 'exists:players,id'],
@@ -125,6 +143,7 @@ class GameController extends Controller
 
     public function destroyEvent(Game $game, GameEvent $event): RedirectResponse
     {
+        $this->authorize('updateSheet', $game);
         abort_unless($event->game_id === $game->id, 404);
         $this->discipline->removeEvent($game, $event);
         $this->sheets->syncScoreFromEvents($game->fresh());
@@ -134,6 +153,7 @@ class GameController extends Controller
 
     public function saveAttendance(Request $request, Game $game): RedirectResponse
     {
+        $this->authorize('updateSheet', $game);
         $data = $request->validate([
             'rows' => ['required', 'array'],
             'rows.*.player_id' => ['required', 'exists:players,id'],
@@ -149,6 +169,7 @@ class GameController extends Controller
 
     public function reschedule(Request $request, Game $game): RedirectResponse
     {
+        $this->authorize('organize', $game);
         $data = $request->validate([
             'scheduled_at' => ['required', 'date'],
             'field_name' => ['nullable', 'string', 'max:120'],
@@ -176,5 +197,20 @@ class GameController extends Controller
         return back()->with('status', $data['status'] === Game::STATUS_POSTPONED
             ? 'Partido aplazado. La nueva fecha quedó como tentativa.'
             : 'Fecha y cancha actualizadas.');
+    }
+
+    public function assignReferees(Request $request, Game $game): RedirectResponse
+    {
+        $this->authorize('assignReferees', $game);
+
+        $duties = array_keys($this->referees->duties($game->tournament));
+        $rules = [];
+        foreach ($duties as $duty) {
+            $rules[$duty] = ['nullable', 'integer', 'exists:users,id'];
+        }
+
+        $this->referees->assignToGame($game, $request->validate($rules));
+
+        return back()->with('status', 'Cuerpo arbitral asignado al partido.');
     }
 }

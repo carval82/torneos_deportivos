@@ -19,6 +19,8 @@ class User extends Authenticatable
     public const ROLE_ORGANIZER = 'organizer';
     public const ROLE_DELEGATE = 'delegate';
     public const ROLE_PLAYER = 'player';
+    public const ROLE_REFEREE = 'referee';
+    public const ROLE_REFEREE_COORDINATOR = 'referee_coordinator';
 
     /**
      * @var list<string>
@@ -78,6 +80,81 @@ class User extends Authenticatable
     public function isPlayer(): bool
     {
         return $this->role === self::ROLE_PLAYER || $this->player_id !== null;
+    }
+
+    public function isReferee(): bool
+    {
+        return $this->role === self::ROLE_REFEREE;
+    }
+
+    public function isRefereeCoordinator(): bool
+    {
+        return $this->role === self::ROLE_REFEREE_COORDINATOR;
+    }
+
+    public function isMatchOfficial(): bool
+    {
+        return in_array($this->role, [self::ROLE_REFEREE, self::ROLE_REFEREE_COORDINATOR], true)
+            || $this->isAdmin();
+    }
+
+    public function roleLabel(): string
+    {
+        return match ($this->role) {
+            self::ROLE_ADMIN => 'Master',
+            self::ROLE_ORGANIZER => 'Organizador',
+            self::ROLE_DELEGATE => 'Delegado',
+            self::ROLE_PLAYER => 'Jugador',
+            self::ROLE_REFEREE => 'Árbitro',
+            self::ROLE_REFEREE_COORDINATOR => 'Coordinador arbitral',
+            default => $this->role,
+        };
+    }
+
+    public function coordinatedTournaments(): HasMany
+    {
+        return $this->hasMany(Tournament::class, 'referee_coordinator_id');
+    }
+
+    public function officiatedGames(): BelongsToMany
+    {
+        return $this->belongsToMany(Game::class, 'game_referees')
+            ->withPivot('duty')
+            ->withTimestamps();
+    }
+
+    public function canAssignReferees(?Tournament $tournament): bool
+    {
+        if (! $tournament) {
+            return false;
+        }
+        if ($this->isAdmin() || (int) $tournament->user_id === (int) $this->id) {
+            return true;
+        }
+
+        return $this->isRefereeCoordinator()
+            && (int) $tournament->referee_coordinator_id === (int) $this->id;
+    }
+
+    public function canManageMatchSheet(Game $game): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        $tournament = $game->relationLoaded('tournament')
+            ? $game->tournament
+            : $game->tournament()->first();
+
+        if ($tournament && $this->canAssignReferees($tournament)) {
+            return true;
+        }
+
+        if ($game->relationLoaded('referees')) {
+            return $game->referees->contains(fn (User $official) => (int) $official->id === (int) $this->id);
+        }
+
+        return $game->referees()->where('users.id', $this->id)->exists();
     }
 
     public function player(): BelongsTo

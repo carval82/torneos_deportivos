@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Sport;
 use App\Models\Team;
 use App\Models\Tournament;
+use App\Models\User;
+use App\Models\GameReferee;
 use App\Services\CompetitionRulesService;
 use App\Services\DisciplineService;
 use App\Services\EligibilityChecker;
@@ -134,7 +136,7 @@ class TournamentController extends Controller
     {
         $this->authorize('view', $tournament);
 
-        $tournament->load(['sport', 'teams.players', 'teams.delegates', 'games.homeTeam', 'games.awayTeam', 'invites']);
+        $tournament->load(['sport', 'teams.players', 'teams.delegates', 'games.homeTeam', 'games.awayTeam', 'games.referees', 'refereeCoordinator', 'invites']);
 
         $tab = $request->string('tab', 'resumen')->toString();
         $table = $this->standings->table($tournament);
@@ -234,6 +236,14 @@ class TournamentController extends Controller
 
         $tournament->update($data);
 
+        $crew = $data['competition_rules']['referee_crew'] ?? 'single';
+        if ($crew === 'single') {
+            GameReferee::query()
+                ->whereIn('game_id', $tournament->games()->select('id'))
+                ->where('duty', '!=', GameReferee::DUTY_MAIN)
+                ->delete();
+        }
+
         return redirect()
             ->route('tournaments.show', $tournament)
             ->with('status', 'Torneo actualizado.');
@@ -332,6 +342,10 @@ class TournamentController extends Controller
             'sports' => Sport::orderBy('name')->get(),
             'weekdays' => Tournament::WEEKDAYS,
             'competitionRulesDefaults' => $this->competitionRules->defaults(),
+            'officials' => User::query()
+                ->whereIn('role', [User::ROLE_REFEREE, User::ROLE_REFEREE_COORDINATOR])
+                ->orderBy('name')
+                ->get(),
         ];
     }
 
@@ -374,6 +388,8 @@ class TournamentController extends Controller
             'roster_lock_mode' => ['nullable', 'in:open,until_date,after_matchday'],
             'roster_lock_until' => ['nullable', 'date'],
             'roster_lock_matchday' => ['nullable', 'integer', 'min:1', 'max:40'],
+            'referee_crew' => ['nullable', 'in:single,trio'],
+            'referee_coordinator_id' => ['nullable', 'exists:users,id'],
             'rules' => ['nullable', 'string'],
             'rules_summary' => ['nullable', 'string', 'max:500'],
             'rules_published' => ['sometimes', 'boolean'],
@@ -419,7 +435,19 @@ class TournamentController extends Controller
             'roster_lock_mode' => $data['roster_lock_mode'] ?? 'open',
             'roster_lock_until' => $data['roster_lock_until'] ?? null,
             'roster_lock_matchday' => $data['roster_lock_matchday'] ?? 1,
+            'referee_crew' => $data['referee_crew'] ?? 'single',
         ]);
+
+        $coordinatorId = $data['referee_coordinator_id'] ?? null;
+        if ($coordinatorId) {
+            $coordinator = User::query()->find((int) $coordinatorId);
+            if (! $coordinator || ! $coordinator->isRefereeCoordinator()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'referee_coordinator_id' => 'Elegí un coordinador arbitral válido. Primero crealo en Árbitros.',
+                ]);
+            }
+        }
+        $data['referee_coordinator_id'] = $coordinatorId ?: null;
 
         $times = collect($data['match_start_times'] ?? [])
             ->map(fn ($time) => substr((string) $time, 0, 5))
@@ -448,6 +476,7 @@ class TournamentController extends Controller
             $data['roster_lock_mode'],
             $data['roster_lock_until'],
             $data['roster_lock_matchday'],
+            $data['referee_crew'],
         );
 
         return $data;

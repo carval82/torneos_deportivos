@@ -9,10 +9,12 @@ use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\PlayerPortalController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicTournamentController;
+use App\Http\Controllers\RefereeDeskController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TeamInviteController;
 use App\Http\Controllers\TournamentController;
 use App\Http\Controllers\OrganizerDelegateController;
+use App\Http\Controllers\OrganizerRefereeController;
 use App\Http\Controllers\TournamentDelegateController;
 use App\Http\Controllers\TournamentPaymentController;
 use Illuminate\Support\Facades\Route;
@@ -39,6 +41,19 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/delegado/equipos/{team}/plantilla', [DelegateRosterController::class, 'roster'])->name('delegate.roster');
     Route::post('/delegado/equipos/{team}/jugadores', [DelegateRosterController::class, 'storePlayer'])->name('delegate.players.store');
     Route::put('/delegado/equipos/{team}/jugadores/{player}', [DelegateRosterController::class, 'updatePlayer'])->name('delegate.players.update');
+
+    Route::get('/mesa-arbitral', [RefereeDeskController::class, 'index'])->name('referee.desk');
+    Route::get('/arbitros', [OrganizerRefereeController::class, 'index'])->name('organizer.referees.index');
+    Route::post('/arbitros', [OrganizerRefereeController::class, 'store'])->name('organizer.referees.store');
+
+    Route::get('games/{game}', [GameController::class, 'show'])->name('games.show');
+    Route::patch('games/{game}', [GameController::class, 'updateScore'])->name('games.score');
+    Route::post('games/{game}/events', [GameController::class, 'storeEvent'])->name('games.events.store');
+    Route::delete('games/{game}/events/{event}', [GameController::class, 'destroyEvent'])->name('games.events.destroy');
+    Route::post('games/{game}/attendance', [GameController::class, 'saveAttendance'])->name('games.attendance');
+    Route::patch('games/{game}/reschedule', [GameController::class, 'reschedule'])->name('games.reschedule');
+    Route::post('games/{game}/walkover', [GameController::class, 'walkover'])->name('games.walkover');
+    Route::post('games/{game}/referees', [GameController::class, 'assignReferees'])->name('games.referees.assign');
 
     Route::post('/torneos/{tournament}/excepciones', [EligibilityExceptionController::class, 'store'])->name('exceptions.store');
     Route::post('/excepciones/{exception}/revisar', [EligibilityExceptionController::class, 'review'])->name('exceptions.review');
@@ -77,14 +92,6 @@ Route::middleware(['auth'])->group(function () {
 
         Route::resource('teams', TeamController::class);
         Route::resource('players', PlayerController::class);
-
-        Route::get('games/{game}', [GameController::class, 'show'])->name('games.show');
-        Route::patch('games/{game}', [GameController::class, 'updateScore'])->name('games.score');
-        Route::post('games/{game}/events', [GameController::class, 'storeEvent'])->name('games.events.store');
-        Route::delete('games/{game}/events/{event}', [GameController::class, 'destroyEvent'])->name('games.events.destroy');
-        Route::post('games/{game}/attendance', [GameController::class, 'saveAttendance'])->name('games.attendance');
-        Route::patch('games/{game}/reschedule', [GameController::class, 'reschedule'])->name('games.reschedule');
-        Route::post('games/{game}/walkover', [GameController::class, 'walkover'])->name('games.walkover');
     });
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

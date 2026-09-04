@@ -93,6 +93,7 @@
                                     <th class="text-center">Marcador</th>
                                     <th>Visitante</th>
                                     <th>Estado</th>
+                                    <th>Árbitro</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -123,6 +124,7 @@
                                             @endif
                                         </td>
                                         <td>{{ $game->statusLabel() }}</td>
+                                        <td class="text-sm text-slate-600">{{ $game->refereesLabel() }}</td>
                                         <td><a href="{{ route('games.show', $game) }}" class="text-arena-navy text-sm font-medium">Abrir partido</a></td>
                                     </tr>
                                 @endforeach
@@ -138,6 +140,7 @@
                                     <p class="text-sm text-slate-500">
                                         {{ optional($game->scheduled_at)->format('d/m/Y H:i') ?? 'Sin horario' }}
                                         · {{ $game->locationLabel() }}
+                                        · {{ $game->refereesLabel() }}
                                     </p>
                                 </div>
                                 <div class="text-sm font-semibold">

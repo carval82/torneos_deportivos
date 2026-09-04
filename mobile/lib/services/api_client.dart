@@ -61,6 +61,15 @@ class ApiClient {
     return _decode(res);
   }
 
+  Future<dynamic> patch(String path, Map<String, dynamic> body, {bool auth = true}) async {
+    final res = await _client.patch(
+      _uri(path),
+      headers: _headers(auth: auth),
+      body: jsonEncode(body),
+    );
+    return _decode(res);
+  }
+
   /// Multipart upload (fotos). Fields as strings; files as local paths.
   Future<dynamic> postMultipart(
     String path, {

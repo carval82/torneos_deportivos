@@ -79,7 +79,7 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Jugador con cédula · Delegado y organizador con email.',
+                  'Jugador con cédula · Delegado, árbitro y organizador con email.',
                   style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 16),
                 ),
                 const Spacer(),
@@ -106,6 +106,22 @@ class WelcomeScreen extends StatelessWidget {
                       );
                     },
                     child: const Text('Soy delegado'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const EmailLoginScreen(
+                            expectedRoles: ['referee', 'referee_coordinator'],
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Text('Soy árbitro'),
                   ),
                 ),
                 const SizedBox(height: 12),

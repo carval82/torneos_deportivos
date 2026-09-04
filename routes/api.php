@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DelegateApiController;
 use App\Http\Controllers\Api\PlayerAuthController;
 use App\Http\Controllers\Api\PublicTournamentApiController;
+use App\Http\Controllers\Api\RefereeApiController;
 use App\Http\Controllers\Api\TournamentApiController;
 use Illuminate\Support\Facades\Route;
 
@@ -39,4 +40,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tournaments/{tournament}', [TournamentApiController::class, 'show']);
     Route::get('/games/{game}', [TournamentApiController::class, 'game']);
     Route::get('/players/{player}', [TournamentApiController::class, 'player']);
+
+    Route::get('/referee/games', [RefereeApiController::class, 'games']);
+    Route::get('/referee/games/{game}', [RefereeApiController::class, 'show']);
+    Route::patch('/referee/games/{game}/score', [RefereeApiController::class, 'updateScore']);
+    Route::post('/referee/games/{game}/events', [RefereeApiController::class, 'storeEvent']);
+    Route::delete('/referee/games/{game}/events/{event}', [RefereeApiController::class, 'destroyEvent']);
 });

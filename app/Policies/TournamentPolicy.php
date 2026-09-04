@@ -22,6 +22,10 @@ class TournamentPolicy
             return true;
         }
 
+        if ((int) $tournament->referee_coordinator_id === (int) $user->id) {
+            return true;
+        }
+
         return $tournament->teams()
             ->whereIn('teams.id', $user->teams()->pluck('teams.id'))
             ->exists();

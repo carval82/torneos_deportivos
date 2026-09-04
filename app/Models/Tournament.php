@@ -29,6 +29,7 @@ class Tournament extends Model
 
     protected $fillable = [
         'user_id',
+        'referee_coordinator_id',
         'sport_id',
         'age_category_id',
         'category_label',
@@ -85,6 +86,11 @@ class Tournament extends Model
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function refereeCoordinator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'referee_coordinator_id');
     }
 
     public function renewedFrom(): BelongsTo
