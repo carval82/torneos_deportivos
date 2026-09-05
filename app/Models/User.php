@@ -138,7 +138,7 @@ class User extends Authenticatable
         if ($this->isAdmin()) {
             return true;
         }
-        if ($tournament->isReadOnly()) {
+        if (! $tournament->canRunMatches()) {
             return false;
         }
         if ((int) $tournament->user_id === (int) $this->id) {
@@ -159,7 +159,7 @@ class User extends Authenticatable
             ? $game->tournament
             : $game->tournament()->first();
 
-        if ($tournament?->isReadOnly()) {
+        if ($tournament && ! $tournament->canRunMatches()) {
             return false;
         }
 

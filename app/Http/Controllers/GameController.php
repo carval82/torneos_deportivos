@@ -173,6 +173,7 @@ class GameController extends Controller
         $data = $request->validate([
             'scheduled_at' => ['required', 'date'],
             'field_name' => ['nullable', 'string', 'max:120'],
+            'matchday' => ['nullable', 'integer', 'min:1', 'max:80'],
             'status' => ['required', 'in:scheduled,postponed,live,finished'],
             'is_tentative' => ['sometimes', 'boolean'],
             'postpone_reason' => ['nullable', 'string', 'max:255'],
@@ -183,20 +184,28 @@ class GameController extends Controller
             $game->original_scheduled_at = $game->scheduled_at;
         }
 
+        $matchday = (int) ($data['matchday'] ?? $game->matchday);
+
         $game->fill([
             'scheduled_at' => $data['scheduled_at'],
             'field_name' => $data['field_name'] ?: $game->field_name,
+            'matchday' => $matchday,
+            'round_name' => $game->round_name ?: 'Fecha '.$matchday,
             'status' => $data['status'],
             'is_tentative' => $request->boolean('is_tentative', $data['status'] !== Game::STATUS_FINISHED),
-            'postpone_reason' => $data['status'] === Game::STATUS_POSTPONED
-                ? ($data['postpone_reason'] ?: 'Aplazado por organización')
-                : null,
+            'postpone_reason' => in_array($data['status'], [Game::STATUS_POSTPONED, Game::STATUS_SCHEDULED], true) && ($data['postpone_reason'] ?? null)
+                ? $data['postpone_reason']
+                : ($data['status'] === Game::STATUS_POSTPONED
+                    ? ($data['postpone_reason'] ?: 'Aplazado por organización')
+                    : $game->postpone_reason),
             'notes' => $data['notes'] ?? $game->notes,
         ])->save();
 
+        $game->tournament->stretchCalendarTo($game->scheduled_at);
+
         return back()->with('status', $data['status'] === Game::STATUS_POSTPONED
-            ? 'Partido aplazado. La nueva fecha quedó como tentativa.'
-            : 'Fecha y cancha actualizadas.');
+            ? 'Este partido quedó aplazado. La nueva fecha es solo de este encuentro; el resto del fixture no se mueve.'
+            : 'Se movió solo este partido. El resto de la fecha no cambia.');
     }
 
     public function assignReferees(Request $request, Game $game): RedirectResponse

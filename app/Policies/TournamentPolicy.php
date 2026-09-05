@@ -42,7 +42,20 @@ class TournamentPolicy
             return true;
         }
 
-        if ($tournament->isReadOnly()) {
+        if (! $tournament->canEditStructure()) {
+            return false;
+        }
+
+        return $tournament->user_id === $user->id;
+    }
+
+    public function schedule(User $user, Tournament $tournament): bool
+    {
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        if (! $tournament->canRunMatches()) {
             return false;
         }
 

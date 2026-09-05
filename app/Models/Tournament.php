@@ -163,23 +163,56 @@ class Tournament extends Model
         };
     }
 
+    public function isFrozen(): bool
+    {
+        return $this->locked_at !== null;
+    }
+
+    public function hasEnded(): bool
+    {
+        return $this->end_date !== null && $this->end_date->lt(now()->startOfDay());
+    }
+
+    public function hasUnfinishedGames(): bool
+    {
+        return $this->games()->where('status', '!=', Game::STATUS_FINISHED)->exists();
+    }
+
     public function isReadOnly(): bool
     {
-        if ($this->locked_at) {
-            return true;
-        }
+        return $this->isFrozen() || ($this->hasEnded() && ! $this->hasUnfinishedGames());
+    }
 
-        return $this->end_date !== null && $this->end_date->lt(now()->startOfDay());
+    public function canEditStructure(): bool
+    {
+        return ! $this->isFrozen() && ! $this->hasEnded();
+    }
+
+    public function canRunMatches(): bool
+    {
+        return ! $this->isFrozen();
+    }
+
+    public function stretchCalendarTo(\DateTimeInterface|string $when): void
+    {
+        $date = \Illuminate\Support\Carbon::parse($when)->toDateString();
+        if (! $this->end_date || $this->end_date->lt($date)) {
+            $this->update(['end_date' => $date]);
+        }
     }
 
     public function lockReason(): ?string
     {
-        if ($this->locked_at) {
-            return 'Este torneo quedó cerrado (renovación o fin de temporada). Se puede consultar; para seguir hay que pagar '.(\App\Models\TournamentPayment::feeLabel()).' y renovar.';
+        if ($this->isFrozen()) {
+            return 'Este torneo quedó cerrado al renovar. Se puede consultar; para una temporada nueva hay que pagar '.(\App\Models\TournamentPayment::feeLabel()).'.';
         }
 
-        if ($this->end_date && $this->end_date->lt(now()->startOfDay())) {
-            return 'La temporada venció el '.$this->end_date->format('d/m/Y').'. Edición bloqueada. Renová con '.(\App\Models\TournamentPayment::feeLabel()).'.';
+        if ($this->hasEnded() && $this->hasUnfinishedGames()) {
+            return 'La fecha de fin ya pasó, pero hay partidos pendientes. Podés aplazar o cargar esos encuentros. No se agregan equipos ni partidos nuevos.';
+        }
+
+        if ($this->hasEnded()) {
+            return 'La temporada venció el '.$this->end_date->format('d/m/Y').'. Para seguir, renovala con '.(\App\Models\TournamentPayment::feeLabel()).'.';
         }
 
         return null;

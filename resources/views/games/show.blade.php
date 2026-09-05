@@ -6,7 +6,7 @@
         {{ $game->locationLabel() }} · {{ $game->statusLabel() }}
     </x-slot>
 
-    @if ($game->tournament->isReadOnly())
+    @if ($game->tournament->lockReason())
         <div class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             {{ $game->tournament->lockReason() }}
         </div>
@@ -267,8 +267,8 @@
         @if ($canOrganize ?? false)
         {{-- Reprogramar partido individual --}}
         <section class="card p-6 xl:col-span-1">
-            <h2 class="font-semibold mb-1">4. Mover este partido</h2>
-            <p class="text-sm text-slate-500 mb-4">Para aplazar toda la fecha usá el botón del fixture.</p>
+            <h2 class="font-semibold mb-1">4. Aplazar solo este partido</h2>
+            <p class="text-sm text-slate-500 mb-4">Se mueve únicamente este encuentro. El resto de la jornada no cambia. Para correr toda la fecha usá el fixture.</p>
             <form method="POST" action="{{ route('games.reschedule', $game) }}" class="space-y-3">
                 @csrf
                 @method('PATCH')
@@ -276,6 +276,10 @@
                     <label class="text-sm text-slate-600">Nueva fecha y hora</label>
                     <input type="datetime-local" name="scheduled_at" class="field"
                            value="{{ optional($game->scheduled_at)->format('Y-m-d\TH:i') }}">
+                </div>
+                <div>
+                    <label class="text-sm text-slate-600">Pasar a Fecha N°</label>
+                    <input type="number" name="matchday" min="1" max="80" value="{{ $game->matchday }}" class="field">
                 </div>
                 <div>
                     <label class="text-sm text-slate-600">Cancha</label>

@@ -2,10 +2,12 @@
     <x-slot name="header">{{ $tournament->name }}</x-slot>
     <x-slot name="subheader">{{ $tournament->sport->name }} · {{ $tournament->ageLabel() }} · {{ $tournament->playDaysLabel() }} · {{ $tournament->formatLabel() }}</x-slot>
 
-    @if ($tournament->isReadOnly())
+    @if ($tournament->lockReason())
         <div class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             {{ $tournament->lockReason() }}
-            <a href="{{ route('billing.index') }}" class="font-semibold underline">Activación / renovar</a>
+            @if ($tournament->isFrozen() || ($tournament->hasEnded() && ! $tournament->hasUnfinishedGames()))
+                <a href="{{ route('billing.index') }}" class="font-semibold underline">Activación / renovar</a>
+            @endif
         </div>
     @endif
 
@@ -273,14 +275,65 @@
 
     @if ($tab === 'fixture')
         <div class="mb-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {{ $tournament->playDaysLabel() }} ·
-            {{ $tournament->fieldSurfaceLabel() }} ·
-            cada {{ $tournament->days_between_rounds ?: 7 }} días ·
-            {{ implode(', ', $tournament->fieldList()) }}.
-            Horarios de cada fecha: <strong>{{ $tournament->timeSlotsLabel() }}</strong>.
-            Primero se llenan todas las canchas en el primer turno, después el siguiente.
-            Si el clima posterga toda la fecha, usá <strong>Aplazar fecha completa</strong>.
+            <p class="font-medium mb-1">Dos tipos de aplazo</p>
+            <p>
+                <strong>Un partido:</strong> se mueve solo ese encuentro (lluvia en una cancha, se quedó sin luz, etc.). El resto de la fecha sigue.
+                <strong>Fecha completa:</strong> corre todos los pendientes de esa jornada y también las fechas siguientes.
+            </p>
+            <p class="mt-2">
+                {{ $tournament->playDaysLabel() }} ·
+                {{ $tournament->fieldSurfaceLabel() }} ·
+                horarios {{ $tournament->timeSlotsLabel() }}.
+                Podés generar el fixture automático o cargarlo a mano, partido por partido.
+            </p>
         </div>
+
+        @if ($canManage ?? false)
+            <section class="card p-6 mb-5">
+                <h2 class="font-semibold mb-1">Agregar partido a mano</h2>
+                <p class="text-sm text-slate-500 mb-4">El organizador arma el calendario. No hace falta generar el automático.</p>
+                <form method="POST" action="{{ route('tournaments.games.store', $tournament) }}" class="grid gap-3 md:grid-cols-2 lg:grid-cols-6">
+                    @csrf
+                    <div>
+                        <label class="text-xs text-slate-500">Local</label>
+                        <select name="home_team_id" class="field" required>
+                            <option value="">Equipo</option>
+                            @foreach ($tournament->teams as $team)
+                                <option value="{{ $team->id }}">{{ $team->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-500">Visitante</label>
+                        <select name="away_team_id" class="field" required>
+                            <option value="">Equipo</option>
+                            @foreach ($tournament->teams as $team)
+                                <option value="{{ $team->id }}">{{ $team->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-500">Fecha N°</label>
+                        <input type="number" name="matchday" min="1" max="80" value="{{ old('matchday', ($gamesByMatchday->keys()->max() ?: 0) + 1) }}" class="field" required>
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-500">Día y hora</label>
+                        <input type="datetime-local" name="scheduled_at" class="field" required>
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-500">Cancha</label>
+                        <select name="field_name" class="field">
+                            @foreach ($tournament->fieldList() as $field)
+                                <option value="{{ $field }}">{{ $field }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button class="btn-primary w-full">Agregar</button>
+                    </div>
+                </form>
+            </section>
+        @endif
 
         @forelse ($gamesByMatchday as $matchday => $games)
             <x-matchday-schedule
@@ -288,9 +341,15 @@
                 :matchday="$matchday"
                 :tournament="$tournament"
                 :admin="$canManage ?? false"
+                :can-schedule="$canSchedule ?? false"
             />
         @empty
-            <div class="card p-8 text-slate-500">Generá el fixture cuando estén los equipos.</div>
+            <div class="card p-8 text-slate-500">
+                Todavía no hay partidos.
+                @if ($canManage ?? false)
+                    Cargá uno a mano arriba o usá <strong>Generar fixture</strong>.
+                @endif
+            </div>
         @endforelse
     @endif
 

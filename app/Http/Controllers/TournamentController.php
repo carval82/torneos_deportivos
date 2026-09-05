@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Game;
 use App\Models\Sport;
 use App\Models\Team;
 use App\Models\Tournament;
@@ -10,6 +11,7 @@ use App\Models\GameReferee;
 use App\Services\CompetitionRulesService;
 use App\Services\DisciplineService;
 use App\Services\EligibilityChecker;
+use App\Services\FixtureEditor;
 use App\Services\FixtureGenerator;
 use App\Services\MatchdayScheduler;
 use App\Services\MatchSheetService;
@@ -28,6 +30,7 @@ class TournamentController extends Controller
         private readonly StandingCalculator $standings,
         private readonly ProbabilityCalculator $probabilities,
         private readonly FixtureGenerator $fixtures,
+        private readonly FixtureEditor $fixtureEditor,
         private readonly MatchSheetService $sheets,
         private readonly EligibilityChecker $eligibility,
         private readonly MatchdayScheduler $scheduler,
@@ -201,6 +204,7 @@ class TournamentController extends Controller
                 ->get(),
             'canDiscipline' => Auth::user()?->canIssueDisciplinarySentence($tournament) ?? false,
             'canManage' => Auth::user()?->can('update', $tournament) ?? false,
+            'canSchedule' => Auth::user()?->can('schedule', $tournament) ?? false,
             'allTeams' => Team::query()->orderBy('name')->get(),
         ]);
     }
@@ -312,9 +316,64 @@ class TournamentController extends Controller
         return back()->with('status', 'Se borró el fixture. Podés generarlo de nuevo.');
     }
 
-    public function postponeMatchday(Request $request, Tournament $tournament): RedirectResponse
+    public function storeManualGame(Request $request, Tournament $tournament): RedirectResponse
     {
         $this->authorize('manage', $tournament);
+
+        $data = $request->validate([
+            'home_team_id' => ['required', 'exists:teams,id'],
+            'away_team_id' => ['required', 'exists:teams,id'],
+            'matchday' => ['required', 'integer', 'min:1', 'max:80'],
+            'scheduled_at' => ['required', 'date'],
+            'field_name' => ['nullable', 'string', 'max:120'],
+            'round_name' => ['nullable', 'string', 'max:80'],
+        ]);
+
+        $this->fixtureEditor->create($tournament, $data);
+
+        return redirect()
+            ->route('tournaments.show', ['tournament' => $tournament, 'tab' => 'fixture'])
+            ->with('status', 'Partido agregado al fixture.');
+    }
+
+    public function updateManualGame(Request $request, Tournament $tournament, Game $game): RedirectResponse
+    {
+        $this->authorize('schedule', $tournament);
+        abort_unless($game->tournament_id === $tournament->id, 404);
+
+        $data = $request->validate([
+            'home_team_id' => ['required', 'exists:teams,id'],
+            'away_team_id' => ['required', 'exists:teams,id'],
+            'matchday' => ['required', 'integer', 'min:1', 'max:80'],
+            'scheduled_at' => ['required', 'date'],
+            'field_name' => ['nullable', 'string', 'max:120'],
+            'round_name' => ['nullable', 'string', 'max:80'],
+            'status' => ['nullable', 'in:scheduled,postponed'],
+            'postpone_reason' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $this->fixtureEditor->update($game, $data);
+
+        return redirect()
+            ->route('tournaments.show', ['tournament' => $tournament, 'tab' => 'fixture'])
+            ->with('status', 'Partido actualizado.');
+    }
+
+    public function destroyManualGame(Tournament $tournament, Game $game): RedirectResponse
+    {
+        $this->authorize('manage', $tournament);
+        abort_unless($game->tournament_id === $tournament->id, 404);
+
+        $this->fixtureEditor->delete($game);
+
+        return redirect()
+            ->route('tournaments.show', ['tournament' => $tournament, 'tab' => 'fixture'])
+            ->with('status', 'Partido quitado del fixture.');
+    }
+
+    public function postponeMatchday(Request $request, Tournament $tournament): RedirectResponse
+    {
+        $this->authorize('schedule', $tournament);
 
         $data = $request->validate([
             'matchday' => ['required', 'integer', 'min:1'],

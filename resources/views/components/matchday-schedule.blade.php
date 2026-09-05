@@ -3,6 +3,7 @@
     'matchday',
     'tournament' => null,
     'admin' => false,
+    'canSchedule' => null,
 ])
 
 @php
@@ -15,6 +16,7 @@
     $slots = $sorted->groupBy(fn ($g) => optional($g->scheduled_at)->format('H:i') ?: 'Sin hora');
     $horarios = $slots->keys()->reject(fn ($h) => $h === 'Sin hora')->values();
     $dateLabel = optional($sorted->first()?->scheduled_at)->format('d/m/Y') ?? 'Sin fecha';
+    $canSchedule = $canSchedule ?? $admin;
 @endphp
 
 <section {{ $attributes->class(['card mb-5 overflow-hidden']) }}>
@@ -32,11 +34,11 @@
                 @endif
             </p>
         </div>
-        @if ($admin && $tournament && $sorted->where('status', '!=', 'finished')->count())
+        @if ($canSchedule && $tournament && $sorted->where('status', '!=', 'finished')->count())
             <x-confirm-button
                 :action="route('tournaments.postpone-matchday', $tournament)"
                 title="¿Aplazar la Fecha {{ $matchday }}?"
-                :message="'Se reprograma al próximo '.$tournament->playDaysLabel().' y también se corren las fechas siguientes.'"
+                :message="'Se reprograman los partidos que siguen en esta jornada. Los que ya moviste uno por uno no se tocan. Las fechas siguientes también se corren.'"
                 confirm="Sí, aplazar fecha"
                 tone="amber"
                 class="btn-ghost text-amber-700 border-amber-200"
@@ -82,7 +84,7 @@
                     </div>
                 </div>
 
-                @if ($admin)
+                @if ($admin || $canSchedule)
                     <div class="table-shell border-0 rounded-none">
                         <table class="data-table">
                             <thead>
@@ -94,7 +96,7 @@
                                     <th>Visitante</th>
                                     <th>Estado</th>
                                     <th>Árbitro</th>
-                                    <th></th>
+                                    <th class="w-56"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -125,7 +127,43 @@
                                         </td>
                                         <td>{{ $game->statusLabel() }}</td>
                                         <td class="text-sm text-slate-600">{{ $game->refereesLabel() }}</td>
-                                        <td><a href="{{ route('games.show', $game) }}" class="text-arena-navy text-sm font-medium">Abrir partido</a></td>
+                                        <td class="text-sm">
+                                            <a href="{{ route('games.show', $game) }}" class="text-arena-navy font-medium">Planilla</a>
+                                            @if ($canSchedule && $game->status !== 'finished')
+                                                <details class="mt-1">
+                                                    <summary class="cursor-pointer text-xs text-amber-800 font-semibold">Mover / aplazar</summary>
+                                                    <form method="POST" action="{{ route('tournaments.games.update', [$tournament, $game]) }}" class="mt-2 space-y-2">
+                                                        @csrf
+                                                        @method('PATCH')
+                                                        <input type="hidden" name="home_team_id" value="{{ $game->home_team_id }}">
+                                                        <input type="hidden" name="away_team_id" value="{{ $game->away_team_id }}">
+                                                        <input type="hidden" name="round_name" value="{{ $game->round_name }}">
+                                                        <input type="datetime-local" name="scheduled_at" class="field !mt-0" required value="{{ optional($game->scheduled_at)->format('Y-m-d\TH:i') }}">
+                                                        <div class="grid grid-cols-2 gap-2">
+                                                            <input type="number" name="matchday" min="1" class="field !mt-0" value="{{ $game->matchday }}" title="Fecha N°">
+                                                            <select name="field_name" class="field !mt-0">
+                                                                @foreach ($tournament->fieldList() as $field)
+                                                                    <option value="{{ $field }}" @selected($game->field_name === $field)>{{ $field }}</option>
+                                                                @endforeach
+                                                            </select>
+                                                        </div>
+                                                        <select name="status" class="field !mt-0">
+                                                            <option value="scheduled" @selected($game->status === 'scheduled')>Programado</option>
+                                                            <option value="postponed" @selected($game->status === 'postponed')>Aplazado (solo este)</option>
+                                                        </select>
+                                                        <input name="postpone_reason" class="field !mt-0" placeholder="Motivo (lluvia, sin luz...)" value="{{ $game->postpone_reason }}">
+                                                        <button class="btn-ghost text-xs w-full">Guardar este partido</button>
+                                                    </form>
+                                                </details>
+                                            @endif
+                                            @if ($admin && $game->status !== 'finished')
+                                                <form method="POST" action="{{ route('tournaments.games.destroy', [$tournament, $game]) }}" class="mt-1" onsubmit="return confirm('¿Quitar este partido del fixture?')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button class="text-xs text-rose-600">Quitar</button>
+                                                </form>
+                                            @endif
+                                        </td>
                                     </tr>
                                 @endforeach
                             </tbody>

@@ -20,10 +20,26 @@ class MatchdayScheduler
     {
         $playDays = $tournament->playDayList();
 
-        $targetGames = $tournament->games()
+        $pendingOnMatchday = $tournament->games()
             ->where('matchday', $matchday)
             ->where('status', '!=', Game::STATUS_FINISHED)
             ->get();
+
+        if ($pendingOnMatchday->isEmpty()) {
+            throw new \RuntimeException('No hay partidos pendientes en esa fecha para aplazar.');
+        }
+
+        $referenceDay = $pendingOnMatchday
+            ->map(fn (Game $game) => $game->scheduled_at?->toDateString())
+            ->filter()
+            ->countBy()
+            ->sortDesc()
+            ->keys()
+            ->first();
+
+        $targetGames = $pendingOnMatchday->filter(
+            fn (Game $game) => $game->scheduled_at?->toDateString() === $referenceDay
+        )->values();
 
         if ($targetGames->isEmpty()) {
             throw new \RuntimeException('No hay partidos pendientes en esa fecha para aplazar.');
@@ -63,6 +79,11 @@ class MatchdayScheduler
                 $moved++;
             }
         });
+
+        $latest = $tournament->games()->max('scheduled_at');
+        if ($latest) {
+            $tournament->stretchCalendarTo($latest);
+        }
 
         return [
             'moved' => $moved,

@@ -6,6 +6,7 @@ use App\Http\Controllers\DelegateRosterController;
 use App\Http\Controllers\DisciplinarySentenceController;
 use App\Http\Controllers\EligibilityExceptionController;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\HelpController;
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\PlayerPortalController;
 use App\Http\Controllers\ProfileController;
@@ -25,6 +26,9 @@ Route::get('/', function () {
 })->name('welcome');
 
 Route::get('/descargar-app', AppDownloadController::class)->name('app.download');
+Route::post('/ayuda/preguntar', [HelpController::class, 'ask'])
+    ->middleware('throttle:40,1')
+    ->name('help.ask');
 Route::get('/arbitro/entrar', function () {
     return redirect()->route('login', ['perfil' => 'arbitro']);
 })->name('referee.login');
@@ -95,6 +99,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('tournaments/{tournament}/fixture', [TournamentController::class, 'generateFixture'])->name('tournaments.fixture');
         Route::delete('tournaments/{tournament}/fixture', [TournamentController::class, 'resetFixture'])->name('tournaments.fixture.reset');
         Route::post('tournaments/{tournament}/postpone-matchday', [TournamentController::class, 'postponeMatchday'])->name('tournaments.postpone-matchday');
+        Route::post('tournaments/{tournament}/games', [TournamentController::class, 'storeManualGame'])->name('tournaments.games.store');
+        Route::patch('tournaments/{tournament}/games/{game}', [TournamentController::class, 'updateManualGame'])->name('tournaments.games.update');
+        Route::delete('tournaments/{tournament}/games/{game}', [TournamentController::class, 'destroyManualGame'])->name('tournaments.games.destroy');
 
         Route::resource('teams', TeamController::class);
         Route::resource('players', PlayerController::class);
