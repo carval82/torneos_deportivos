@@ -38,12 +38,20 @@ class TournamentPolicy
 
     public function update(User $user, Tournament $tournament): bool
     {
-        return $user->isAdmin() || $tournament->user_id === $user->id;
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        if ($tournament->isReadOnly()) {
+            return false;
+        }
+
+        return $tournament->user_id === $user->id;
     }
 
     public function delete(User $user, Tournament $tournament): bool
     {
-        return $this->update($user, $tournament);
+        return $user->isAdmin() || $tournament->user_id === $user->id;
     }
 
     public function manage(User $user, Tournament $tournament): bool
@@ -54,5 +62,10 @@ class TournamentPolicy
     public function invite(User $user, Tournament $tournament): bool
     {
         return $this->update($user, $tournament);
+    }
+
+    public function renew(User $user, Tournament $tournament): bool
+    {
+        return $user->isAdmin() || $tournament->user_id === $user->id;
     }
 }

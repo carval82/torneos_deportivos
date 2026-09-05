@@ -9,7 +9,20 @@ class GamePolicy
 {
     public function view(User $user, Game $game): bool
     {
-        return $user->canManageMatchSheet($game) || $user->canAssignReferees($game->tournament);
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        $tournament = $game->relationLoaded('tournament')
+            ? $game->tournament
+            : $game->tournament()->first();
+
+        if ($tournament && ((int) $tournament->user_id === (int) $user->id
+            || (int) $tournament->referee_coordinator_id === (int) $user->id)) {
+            return true;
+        }
+
+        return $game->referees()->where('users.id', $user->id)->exists();
     }
 
     public function updateSheet(User $user, Game $game): bool

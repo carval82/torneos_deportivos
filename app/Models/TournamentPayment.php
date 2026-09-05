@@ -14,7 +14,12 @@ class TournamentPayment extends Model
     public const PURPOSE_CREATE = 'create';
     public const PURPOSE_RENEW = 'renew';
 
-    public const FEE_AMOUNT = 70000;
+    public const FEE_AMOUNT = 50000;
+
+    public static function feeLabel(): string
+    {
+        return '$'.number_format(self::FEE_AMOUNT, 0, ',', '.').' COP';
+    }
 
     protected $fillable = [
         'user_id',

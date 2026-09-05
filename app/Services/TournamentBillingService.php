@@ -15,40 +15,67 @@ class TournamentBillingService
             return true;
         }
 
-        if (! $user->free_tournament_used) {
-            return true;
-        }
-
-        return $user->tournament_credits > 0;
+        return $user->tournament_credits > 0 && $this->hasValidIdentity($user);
     }
 
     public function remainingFreeQuota(User $user): int
     {
-        if ($user->isAdmin()) {
-            return 999;
+        return $user->isAdmin() ? 999 : 0;
+    }
+
+    public function hasValidIdentity(User $user): bool
+    {
+        $document = User::normalizeDocument($user->document_number);
+
+        if (! $document) {
+            return false;
         }
 
-        return $user->free_tournament_used ? 0 : 1;
+        return ! User::query()
+            ->where('id', '!=', $user->id)
+            ->where('document_number', $document)
+            ->exists();
+    }
+
+    public function assertIdentity(User $user): void
+    {
+        if ($user->isAdmin()) {
+            return;
+        }
+
+        $document = User::normalizeDocument($user->document_number);
+        if (! $document) {
+            throw ValidationException::withMessages([
+                'billing' => 'Antes de crear o renovar un torneo cargá tu cédula en el perfil. Así no se evaden pagos con otra cuenta.',
+            ]);
+        }
+
+        $other = User::query()
+            ->where('id', '!=', $user->id)
+            ->where('document_number', $document)
+            ->first();
+
+        if ($other) {
+            throw ValidationException::withMessages([
+                'billing' => 'Esta cédula ya está en otra cuenta ('.$other->email.'). No se puede crear ni renovar torneos con un documento duplicado.',
+            ]);
+        }
     }
 
     /**
-     * Consume free slot or paid credit. Returns billing type used.
+     * Consume 1 paid credit. Every tournament costs a credit (no free slot).
      */
     public function consumeForCreate(User $user): string
     {
         if ($user->isAdmin()) {
-            return 'free';
+            return 'paid';
         }
 
-        if (! $user->free_tournament_used) {
-            $user->update(['free_tournament_used' => true]);
-
-            return 'free';
-        }
+        $this->assertIdentity($user);
 
         if ($user->tournament_credits < 1) {
             throw ValidationException::withMessages([
-                'billing' => 'Ya usaste tu torneo gratis. Solicitá la activación de $'.number_format(TournamentPayment::FEE_AMOUNT, 0, ',', '.').' COP para crear o renovar otro.',
+                'billing' => 'Cada torneo o renovación cuesta '.TournamentPayment::feeLabel().'. Solicitá la activación y esperá la aprobación del master.',
             ]);
         }
 
@@ -59,6 +86,8 @@ class TournamentBillingService
 
     public function requestPayment(User $user, string $purpose = TournamentPayment::PURPOSE_CREATE, ?Tournament $reference = null, ?string $notes = null): TournamentPayment
     {
+        $this->assertIdentity($user);
+
         $pending = TournamentPayment::query()
             ->where('user_id', $user->id)
             ->where('status', TournamentPayment::STATUS_PENDING)

@@ -14,6 +14,16 @@ class RosterLockService
      */
     public function status(Tournament $tournament): array
     {
+        if ($tournament->isReadOnly()) {
+            return [
+                'open' => false,
+                'mode' => 'locked',
+                'message' => $tournament->lockReason() ?: 'Este torneo está cerrado. Solo consulta.',
+                'until' => null,
+                'matchday' => null,
+            ];
+        }
+
         $rules = $this->rules->for($tournament);
         $mode = $rules['roster_lock_mode'];
 

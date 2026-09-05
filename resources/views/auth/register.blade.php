@@ -12,6 +12,22 @@
             <input name="email" type="email" value="{{ old('email') }}" class="field" required>
             <x-input-error :messages="$errors->get('email')" class="mt-2" />
         </div>
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="text-sm text-slate-600">Tipo doc.</label>
+                <select name="document_type" class="field">
+                    @foreach (['Cédula', 'DNI', 'Pasaporte'] as $type)
+                        <option value="{{ $type }}" @selected(old('document_type', 'Cédula') === $type)>{{ $type }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="text-sm text-slate-600">Cédula / documento</label>
+                <input name="document_number" value="{{ old('document_number') }}" class="field" required placeholder="Solo números">
+                <x-input-error :messages="$errors->get('document_number')" class="mt-2" />
+            </div>
+        </div>
+        <p class="text-xs text-slate-500">Cada torneo cuesta {{ \App\Models\TournamentPayment::feeLabel() }}. La cédula es única: no sirve abrir otra cuenta con el mismo documento.</p>
         <div>
             <label class="text-sm text-slate-600">Contraseña</label>
             <input name="password" type="password" class="field" required>

@@ -47,6 +47,7 @@ class Tournament extends Model
         'status',
         'start_date',
         'end_date',
+        'locked_at',
         'points_win',
         'points_draw',
         'points_loss',
@@ -73,6 +74,7 @@ class Tournament extends Model
         return [
             'start_date' => 'date',
             'end_date' => 'date',
+            'locked_at' => 'datetime',
             'double_round' => 'boolean',
             'rules_published' => 'boolean',
             'is_public' => 'boolean',
@@ -161,8 +163,42 @@ class Tournament extends Model
         };
     }
 
+    public function isReadOnly(): bool
+    {
+        if ($this->locked_at) {
+            return true;
+        }
+
+        return $this->end_date !== null && $this->end_date->lt(now()->startOfDay());
+    }
+
+    public function lockReason(): ?string
+    {
+        if ($this->locked_at) {
+            return 'Este torneo quedó cerrado (renovación o fin de temporada). Se puede consultar; para seguir hay que pagar '.(\App\Models\TournamentPayment::feeLabel()).' y renovar.';
+        }
+
+        if ($this->end_date && $this->end_date->lt(now()->startOfDay())) {
+            return 'La temporada venció el '.$this->end_date->format('d/m/Y').'. Edición bloqueada. Renová con '.(\App\Models\TournamentPayment::feeLabel()).'.';
+        }
+
+        return null;
+    }
+
+    public function lock(): void
+    {
+        $this->forceFill([
+            'locked_at' => $this->locked_at ?: now(),
+            'status' => self::STATUS_FINISHED,
+        ])->save();
+    }
+
     public function statusLabel(): string
     {
+        if ($this->isReadOnly() && $this->status !== self::STATUS_FINISHED) {
+            return 'Cerrado';
+        }
+
         return match ($this->status) {
             self::STATUS_DRAFT => 'Borrador',
             self::STATUS_INSCRIPTION => 'Inscripción',

@@ -30,6 +30,8 @@ class ProfileTest extends TestCase
             ->patch('/profile', [
                 'name' => 'Test User',
                 'email' => 'test@example.com',
+                'document_type' => 'Cédula',
+                'document_number' => '1098765432',
             ]);
 
         $response
@@ -52,6 +54,8 @@ class ProfileTest extends TestCase
             ->patch('/profile', [
                 'name' => 'Test User',
                 'email' => $user->email,
+                'document_type' => $user->document_type ?: 'Cédula',
+                'document_number' => $user->document_number ?: '1098765432',
             ]);
 
         $response

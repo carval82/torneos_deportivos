@@ -21,6 +21,8 @@ class RegistrationTest extends TestCase
         $response = $this->post('/register', [
             'name' => 'Test User',
             'email' => 'test@example.com',
+            'document_type' => 'Cédula',
+            'document_number' => '123456789',
             'password' => 'password',
             'password_confirmation' => 'password',
         ]);

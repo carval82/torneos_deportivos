@@ -30,15 +30,23 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        $request->merge([
+            'document_number' => User::normalizeDocument($request->input('document_number')),
+        ]);
+
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'document_type' => ['required', 'in:Cédula,DNI,Pasaporte'],
+            'document_number' => ['required', 'string', 'max:40', 'unique:'.User::class.',document_number'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
+            'document_type' => $request->document_type,
+            'document_number' => $request->document_number,
             'password' => Hash::make($request->password),
             'role' => User::ROLE_ORGANIZER,
         ]);

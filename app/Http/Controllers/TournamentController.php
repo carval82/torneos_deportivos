@@ -60,16 +60,14 @@ class TournamentController extends Controller
             return redirect()
                 ->route('billing.index')
                 ->withErrors([
-                    'billing' => 'Ya usaste tu torneo gratis. Para crear o renovar otro debés abonar $70.000 COP y esperar la aprobación del master.',
+                    'billing' => 'Cada torneo cuesta '.\App\Models\TournamentPayment::feeLabel().'. Cargá tu cédula en el perfil, solicitá la activación y esperá al master.',
                 ]);
         }
 
         return view('tournaments.create', array_merge($this->formData(), [
             'billingNote' => $user->isAdmin()
                 ? 'Master: sin límite de torneos.'
-                : ($user->free_tournament_used
-                    ? 'Este torneo consumirá 1 crédito pago.'
-                    : 'Este es tu torneo gratis incluido.'),
+                : 'Este torneo consume 1 crédito de '.\App\Models\TournamentPayment::feeLabel().'.',
         ]));
     }
 
@@ -89,12 +87,12 @@ class TournamentController extends Controller
 
         return redirect()
             ->route('tournaments.show', $tournament)
-            ->with('status', 'Torneo creado ('.($billingType === 'free' ? 'gratis' : 'pago').'). Inscribí equipos y generá el fixture.');
+            ->with('status', 'Torneo creado. Inscribí equipos y generá el fixture.');
     }
 
     public function renew(Request $request, Tournament $tournament): RedirectResponse
     {
-        $this->authorize('update', $tournament);
+        $this->authorize('renew', $tournament);
 
         $user = $request->user();
         abort_unless($user->isAdmin() || $tournament->user_id === $user->id, 403);
@@ -103,7 +101,7 @@ class TournamentController extends Controller
             return redirect()
                 ->route('billing.index')
                 ->withErrors([
-                    'billing' => 'Para renovar necesitás abonar $70.000 COP (1 torneo). Solicitá la activación al master.',
+                    'billing' => 'Para renovar necesitás abonar '.\App\Models\TournamentPayment::feeLabel().' (1 torneo) y tener la cédula cargada. Solicitá la activación al master.',
                 ]);
         }
 
@@ -114,6 +112,7 @@ class TournamentController extends Controller
             'status',
             'start_date',
             'end_date',
+            'locked_at',
         ]);
         $replica->name = $tournament->name.' · Renovación';
         $replica->season = (string) (now()->year);
@@ -125,11 +124,14 @@ class TournamentController extends Controller
         $replica->user_id = $tournament->user_id;
         $replica->start_date = now()->toDateString();
         $replica->end_date = null;
+        $replica->locked_at = null;
         $replica->save();
+
+        $tournament->lock();
 
         return redirect()
             ->route('tournaments.show', $replica)
-            ->with('status', 'Torneo renovado ('.($billingType === 'free' ? 'gratis' : 'pago').'). Configurá fechas y generá el fixture.');
+            ->with('status', 'Temporada nueva creada. El torneo anterior quedó en solo consulta.');
     }
 
     public function show(Request $request, Tournament $tournament): View
@@ -198,6 +200,7 @@ class TournamentController extends Controller
                 ->latest()
                 ->get(),
             'canDiscipline' => Auth::user()?->canIssueDisciplinarySentence($tournament) ?? false,
+            'canManage' => Auth::user()?->can('update', $tournament) ?? false,
             'allTeams' => Team::query()->orderBy('name')->get(),
         ]);
     }

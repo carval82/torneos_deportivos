@@ -1,11 +1,11 @@
 <x-app-layout>
     <x-slot name="header">{{ auth()->user()->isMaster() ? 'Pagos / Master' : 'Activación de torneos' }}</x-slot>
-    <x-slot name="subheader">1er torneo gratis · siguientes y renovaciones: $70.000 COP</x-slot>
+    <x-slot name="subheader">Cada torneo o renovación: {{ \App\Models\TournamentPayment::feeLabel() }} · cédula única</x-slot>
 
     <div class="grid gap-6 lg:grid-cols-3 mb-8">
         <div class="card p-5">
-            <p class="text-sm text-slate-500">Torneo gratis</p>
-            <p class="mt-2 text-2xl font-semibold text-arena-navy">{{ $freeQuota > 0 ? 'Disponible' : 'Usado' }}</p>
+            <p class="text-sm text-slate-500">Valor por torneo</p>
+            <p class="mt-2 text-2xl font-semibold text-arena-navy">{{ \App\Models\TournamentPayment::feeLabel() }}</p>
         </div>
         <div class="card p-5">
             <p class="text-sm text-slate-500">Créditos pagos</p>
@@ -21,11 +21,18 @@
 
     @unless (auth()->user()->isMaster())
         <section class="card p-6 mb-8">
-            <h2 class="font-semibold mb-2">Solicitar activación ($70.000 COP)</h2>
+            <h2 class="font-semibold mb-2">Solicitar activación ({{ \App\Models\TournamentPayment::feeLabel() }})</h2>
             <p class="text-sm text-slate-600 mb-4">
-                Delegados y jugadores entran sin costo. El cobro aplica solo al organizador al crear un 2º torneo o renovar.
-                El master aprueba el pago y te acredita 1 torneo.
+                Delegados, árbitros y jugadores no pagan. El organizador paga cada torneo nuevo o cada renovación.
+                Tenés que tener cédula en el perfil (no se puede repetir en otra cuenta). El master aprueba el comprobante y te acredita 1 torneo.
             </p>
+            @if (! auth()->user()->document_number)
+                <p class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    Falta tu cédula.
+                    <a href="{{ route('profile.edit') }}" class="font-semibold underline">Cargala en el perfil</a>
+                    antes de pedir la activación.
+                </p>
+            @endif
             @error('billing')
                 <p class="mb-4 text-sm text-rose-600">{{ $message }}</p>
             @enderror
@@ -42,7 +49,7 @@
                     <label class="text-sm text-slate-600">Nota / comprobante (opcional)</label>
                     <input name="notes" class="field" placeholder="Transferencia, referencia, etc.">
                 </div>
-                <button class="btn-accent">Solicitar activación</button>
+                <button class="btn-accent" @disabled(! auth()->user()->document_number)>Solicitar activación</button>
             </form>
         </section>
     @endunless
@@ -71,7 +78,13 @@
                         <tr>
                             <td>{{ $payment->created_at?->format('d/m/Y H:i') }}</td>
                             @if (auth()->user()->isMaster())
-                                <td>{{ $payment->user?->name }}<br><span class="text-xs text-slate-500">{{ $payment->user?->email }}</span></td>
+                                <td>
+                                    {{ $payment->user?->name }}<br>
+                                    <span class="text-xs text-slate-500">{{ $payment->user?->email }}</span>
+                                    @if ($payment->user?->document_number)
+                                        <br><span class="text-xs text-slate-500">{{ $payment->user->document_type }} {{ $payment->user->document_number }}</span>
+                                    @endif
+                                </td>
                             @endif
                             <td class="font-semibold">{{ $payment->amountLabel() }}</td>
                             <td>{{ $payment->purpose === 'renew' ? 'Renovar' : 'Crear' }}</td>

@@ -6,6 +6,12 @@
         {{ $game->locationLabel() }} · {{ $game->statusLabel() }}
     </x-slot>
 
+    @if ($game->tournament->isReadOnly())
+        <div class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {{ $game->tournament->lockReason() }}
+        </div>
+    @endif
+
     <div class="mb-4 flex flex-wrap gap-3">
         @if (auth()->user()?->isOrganizer() || auth()->user()?->isAdmin())
             <a href="{{ route('tournaments.show', ['tournament' => $game->tournament, 'tab' => 'fixture']) }}" class="text-sm text-arena-navy font-medium">← Volver al fixture</a>

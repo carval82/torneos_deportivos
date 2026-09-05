@@ -123,12 +123,25 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    public static function normalizeDocument(?string $document): ?string
+    {
+        $value = preg_replace('/\s+/', '', trim((string) $document));
+
+        return $value === '' ? null : $value;
+    }
+
     public function canAssignReferees(?Tournament $tournament): bool
     {
         if (! $tournament) {
             return false;
         }
-        if ($this->isAdmin() || (int) $tournament->user_id === (int) $this->id) {
+        if ($this->isAdmin()) {
+            return true;
+        }
+        if ($tournament->isReadOnly()) {
+            return false;
+        }
+        if ((int) $tournament->user_id === (int) $this->id) {
             return true;
         }
 
@@ -145,6 +158,10 @@ class User extends Authenticatable
         $tournament = $game->relationLoaded('tournament')
             ? $game->tournament
             : $game->tournament()->first();
+
+        if ($tournament?->isReadOnly()) {
+            return false;
+        }
 
         if ($tournament && $this->canAssignReferees($tournament)) {
             return true;

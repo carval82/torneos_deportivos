@@ -16,6 +16,12 @@ class DelegateProvisioningService
      */
     public function enrollTeam(Tournament $tournament, Team $team): void
     {
+        if ($tournament->isReadOnly()) {
+            throw ValidationException::withMessages([
+                'team_id' => $tournament->lockReason() ?: 'Este torneo está cerrado. No se pueden sumar equipos.',
+            ]);
+        }
+
         if ($tournament->teams()->where('teams.id', $team->id)->exists()) {
             return;
         }

@@ -23,17 +23,20 @@
                         <span>{{ $tournament->teams_count }}{{ $tournament->max_teams ? '/'.$tournament->max_teams : '' }} equipos</span>
                         <span>{{ $tournament->games_count }} partidos</span>
                         <span>{{ count($tournament->fieldList()) }} canchas</span>
-                        <span>{{ ($tournament->billing_type ?? 'free') === 'paid' ? 'Pago' : 'Gratis' }}</span>
+                        <span>{{ $tournament->isReadOnly() ? 'Solo consulta' : ((($tournament->billing_type ?? 'paid') === 'paid') ? 'Pago' : 'Activo') }}</span>
                     </div>
                 </a>
+                @if ($tournament->isReadOnly())
+                    <p class="mt-3 text-xs text-amber-800">{{ $tournament->lockReason() }}</p>
+                @endif
                 <form method="POST" action="{{ route('tournaments.renew', $tournament) }}" class="mt-4">
                     @csrf
-                    <button class="btn-ghost text-xs">Renovar torneo ($70.000 si ya usaste el gratis)</button>
+                    <button class="btn-ghost text-xs">Renovar temporada ({{ \App\Models\TournamentPayment::feeLabel() }})</button>
                 </form>
             </div>
         @empty
             <div class="card p-8 md:col-span-2 text-slate-500">
-                No hay torneos todavía. El primero es gratis; el siguiente o una renovación cuesta $70.000 COP.
+                No hay torneos todavía. Cada torneo cuesta {{ \App\Models\TournamentPayment::feeLabel() }} y se pide cédula única del organizador.
             </div>
         @endforelse
     </div>

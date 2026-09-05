@@ -37,7 +37,7 @@
                     Gestioná torneos y eventos con la pasión que nos une.
                 </h1>
                 <p class="mt-6 text-lg text-white/80">
-                    Acceso solo con login: organizador, delegado, árbitro o jugador. El primer torneo del organizador es gratis; crear o renovar otro cuesta $70.000 COP (aprueba el master).
+                    Acceso solo con login: organizador, delegado, árbitro o jugador. Cada torneo o renovación del organizador cuesta $50.000 COP (aprueba el master). La cédula es única para que no se evada con otra cuenta.
                 </p>
                 <div class="mt-10 flex flex-wrap gap-3">
                     <a href="{{ route('register') }}" class="btn-accent">Soy organizador</a>

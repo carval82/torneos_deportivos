@@ -2,6 +2,13 @@
     <x-slot name="header">{{ $tournament->name }}</x-slot>
     <x-slot name="subheader">{{ $tournament->sport->name }} · {{ $tournament->ageLabel() }} · {{ $tournament->playDaysLabel() }} · {{ $tournament->formatLabel() }}</x-slot>
 
+    @if ($tournament->isReadOnly())
+        <div class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {{ $tournament->lockReason() }}
+            <a href="{{ route('billing.index') }}" class="font-semibold underline">Activación / renovar</a>
+        </div>
+    @endif
+
     @php
         $tabs = [
             'resumen' => 'Resumen',
@@ -32,6 +39,7 @@
             @if ($tournament->rules_published)
                 <a href="{{ route('tournaments.rules', $tournament) }}" target="_blank" class="btn-ghost">Reglamento</a>
             @endif
+            @if ($canManage ?? false)
             <a href="{{ route('tournaments.edit', $tournament) }}" class="btn-ghost">Editar</a>
             @if ($tournament->games->isEmpty())
                 <form method="POST" action="{{ route('tournaments.fixture', $tournament) }}">
@@ -51,6 +59,7 @@
                     Resetear fixture
                 </x-confirm-button>
             @endif
+            @endif
         </div>
     </div>
 
@@ -61,6 +70,7 @@
                     <h2 class="font-semibold">Inscribir equipo</h2>
                     <span class="text-sm text-slate-500">{{ $tournament->teams->count() }}{{ $tournament->max_teams ? ' / '.$tournament->max_teams : '' }} equipos</span>
                 </div>
+                @if ($canManage ?? false)
                 <form method="POST" action="{{ route('tournaments.enroll', $tournament) }}" class="flex flex-col sm:flex-row gap-3">
                     @csrf
                     <select name="team_id" class="field" required>
@@ -71,6 +81,7 @@
                     </select>
                     <button class="btn-primary shrink-0">Inscribir</button>
                 </form>
+                @endif
                 <div class="mt-6 grid sm:grid-cols-2 gap-3">
                     @forelse ($tournament->teams as $team)
                         <div class="rounded-2xl border border-slate-100 px-4 py-3">
@@ -276,7 +287,7 @@
                 :games="$games"
                 :matchday="$matchday"
                 :tournament="$tournament"
-                :admin="true"
+                :admin="$canManage ?? false"
             />
         @empty
             <div class="card p-8 text-slate-500">Generá el fixture cuando estén los equipos.</div>

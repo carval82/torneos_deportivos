@@ -27,6 +27,26 @@
             <x-input-label for="email" :value="__('Email')" />
             <x-text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email', $user->email)" required autocomplete="username" />
             <x-input-error class="mt-2" :messages="$errors->get('email')" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="text-sm text-slate-600" for="document_type">Tipo doc.</label>
+                <select id="document_type" name="document_type" class="field">
+                    @foreach (['Cédula', 'DNI', 'Pasaporte'] as $type)
+                        <option value="{{ $type }}" @selected(old('document_type', $user->document_type ?: 'Cédula') === $type)>{{ $type }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="text-sm text-slate-600" for="document_number">Cédula / documento</label>
+                <input id="document_number" name="document_number" value="{{ old('document_number', $user->document_number) }}" class="field" required>
+                <x-input-error class="mt-2" :messages="$errors->get('document_number')" />
+            </div>
+        </div>
+        <p class="text-xs text-slate-500">Obligatoria para crear o renovar torneos. No puede repetirse en otra cuenta.</p>
+
+        <div>
 
             @if ($user instanceof \Illuminate\Contracts\Auth\MustVerifyEmail && ! $user->hasVerifiedEmail())
                 <div>
