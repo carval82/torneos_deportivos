@@ -19,7 +19,9 @@
                     </span>
                 </a>
                 <div class="flex gap-2">
+                    <a href="{{ route('app.download') }}" class="btn-ghost text-sm">Descargar app</a>
                     <a href="{{ route('player.login') }}" class="btn-ghost text-sm">Soy jugador</a>
+                    <a href="{{ route('referee.login') }}" class="btn-ghost text-sm">Soy árbitro</a>
                     <a href="{{ route('login') }}" class="btn-primary text-sm">Organizador</a>
                 </div>
             </div>

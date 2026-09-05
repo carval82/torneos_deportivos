@@ -23,6 +23,7 @@
                 @auth
                     <a href="{{ route('dashboard') }}" class="btn-accent">Ir al panel</a>
                 @else
+                    <a href="{{ route('app.download') }}" class="btn border border-white/25 bg-white/10 text-white hover:bg-white/15">Descargar app</a>
                     <a href="{{ route('login') }}" class="btn border border-white/25 bg-white/10 text-white hover:bg-white/15">Entrar</a>
                     <a href="{{ route('register') }}" class="btn-accent">Crear cuenta</a>
                 @endauth
@@ -36,13 +37,18 @@
                     Gestioná torneos y eventos con la pasión que nos une.
                 </h1>
                 <p class="mt-6 text-lg text-white/80">
-                    Acceso solo con login: organizador, delegado o jugador. El primer torneo del organizador es gratis; crear o renovar otro cuesta $70.000 COP (aprueba el master).
+                    Acceso solo con login: organizador, delegado, árbitro o jugador. El primer torneo del organizador es gratis; crear o renovar otro cuesta $70.000 COP (aprueba el master).
                 </p>
                 <div class="mt-10 flex flex-wrap gap-3">
                     <a href="{{ route('register') }}" class="btn-accent">Soy organizador</a>
+                    <a href="{{ route('login', ['perfil' => 'delegado']) }}" class="btn border border-white/25 bg-white/10 text-white hover:bg-white/15">Soy delegado</a>
+                    <a href="{{ route('referee.login') }}" class="btn border border-white/25 bg-white/10 text-white hover:bg-white/15">Soy árbitro</a>
                     <a href="{{ route('player.login') }}" class="btn border border-white/25 bg-white/10 text-white hover:bg-white/15">Soy jugador</a>
-                    <a href="{{ route('login') }}" class="btn border border-white/25 bg-white/10 text-white hover:bg-white/15">Entrar</a>
                 </div>
+                <a href="{{ route('app.download') }}" class="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-arena-lime hover:text-white">
+                    Descargar app Android
+                    <span class="text-white/60 font-normal">· Arena Players 1.0.4</span>
+                </a>
             </div>
 
             <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-12">
@@ -50,12 +56,19 @@
                     ['Planillas', 'Foto del jugador y del DNI para categorías con tope de edad.'],
                     ['Fixture', 'Todos contra todos o eliminación, con carga de goles y W.O.'],
                     ['Estadística', 'Tabla, goleadores, asistencia y curvas por fecha.'],
-                    ['Flutter', 'API con Sanctum lista para la app móvil.'],
+                    ['App Android', 'Descargala acá: planilla, fixture y mesa arbitral en el celular.'],
                 ] as $item)
-                    <div class="glass-panel-dark p-5">
-                        <h2 class="font-semibold text-arena-lime">{{ $item[0] }}</h2>
-                        <p class="text-sm text-white/75 mt-2">{{ $item[1] }}</p>
-                    </div>
+                    @if ($item[0] === 'App Android')
+                        <a href="{{ route('app.download') }}" class="glass-panel-dark p-5 block hover:ring-1 hover:ring-arena-lime/40">
+                            <h2 class="font-semibold text-arena-lime">{{ $item[0] }}</h2>
+                            <p class="text-sm text-white/75 mt-2">{{ $item[1] }}</p>
+                        </a>
+                    @else
+                        <div class="glass-panel-dark p-5">
+                            <h2 class="font-semibold text-arena-lime">{{ $item[0] }}</h2>
+                            <p class="text-sm text-white/75 mt-2">{{ $item[1] }}</p>
+                        </div>
+                    @endif
                 @endforeach
             </div>
         </main>

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AppDownloadController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DelegateRosterController;
 use App\Http\Controllers\DisciplinarySentenceController;
@@ -22,6 +23,11 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 })->name('welcome');
+
+Route::get('/descargar-app', AppDownloadController::class)->name('app.download');
+Route::get('/arbitro/entrar', function () {
+    return redirect()->route('login', ['perfil' => 'arbitro']);
+})->name('referee.login');
 
 // Invitación delegado y login jugador (puertas de entrada sin sesión previa)
 Route::get('/invitar/{token}', [TeamInviteController::class, 'show'])->name('invites.show');

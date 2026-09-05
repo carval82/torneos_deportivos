@@ -20,6 +20,10 @@
                 </div>
                 <button class="btn-accent w-full">Ver mi información</button>
             </form>
+            <p class="mt-6 text-sm text-slate-500">
+                ¿Tenés Android?
+                <a href="{{ route('app.download') }}" class="font-semibold text-arena-navy">Descargá la app</a>
+            </p>
         </div>
     </div>
 @endsection
