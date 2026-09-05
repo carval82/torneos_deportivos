@@ -72,5 +72,6 @@
                 @endforeach
             </div>
         </main>
+        @include('partials.asistente')
     </body>
 </html>

@@ -28,6 +28,7 @@ Repo: https://github.com/carval82/torneos_deportivos.git
 | `CACHE_STORE` | `database` |
 | `QUEUE_CONNECTION` | `database` |
 | `FILESYSTEM_DISK` | `public` |
+| `ASISTENTE_FRAME_URL` | `https://chatbot-production-ab9d.up.railway.app/w/arena-ayuda` (opcional; ese es el valor por defecto) |
 
 ## 3. Build / start
 

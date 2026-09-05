@@ -34,5 +34,6 @@
             @endif
             @yield('content')
         </main>
+        @include('partials.asistente')
     </body>
 </html>

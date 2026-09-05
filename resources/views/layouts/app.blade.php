@@ -56,5 +56,6 @@
             </div>
         </div>
         @stack('scripts')
+        @include('partials.asistente')
     </body>
 </html>
